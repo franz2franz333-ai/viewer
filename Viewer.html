@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Viewer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: #2a2a3d;
+    --accent: #7c6af7;
+    --accent2: #f76a8a;
+    --text: #e8e8f0;
+    --muted: #6b6b85;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overscroll-behavior: none;
+  }
+
+  /* ── Header ── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  header.header-hidden {
+    transform: translateY(-100%);
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .logo {
+    font-size: 1.3rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    flex-shrink: 0;
+  }
+
+  .search-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  #tag-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 36px 8px 12px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  #tag-input:focus { border-color: var(--accent); }
+  #tag-input::placeholder { color: var(--muted); }
+
+  #autocomplete {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 300;
+    display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  #autocomplete.open { display: block; }
+
+  .ac-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    gap: 8px;
+    transition: background .1s;
+  }
+  .ac-item:active, .ac-item:hover, .ac-item.active { background: var(--surface2); }
+  .ac-item-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ac-item-name em { color: var(--accent); font-style: normal; }
+  .ac-item-count {
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    flex-shrink: 0;
+  }
+  .ac-item-cat {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cat-0 { background: #b0c4de; }
+  .cat-1 { background: #f4a460; }
+  .cat-3 { background: #daa520; }
+  .cat-4 { background: #8db695; }
+  .cat-5 { background: #e69ac6; }
+
+  .search-btn {
+    position: absolute;
+    right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--accent); font-size: 1rem; line-height: 1;
+    padding: 4px;
+  }
+
+  /* ── Site picker ── */
+  .site-picker { position: relative; flex-shrink: 0; }
+  .site-btn {
+    font-size: 1.3rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    cursor: pointer; border: none; padding: 0;
+    font-family: 'Syne', sans-serif; line-height: 1;
+  }
+  .site-btn-wrap { display: flex; align-items: center; gap: 3px; }
+  .site-caret { font-size: 0.7rem; color: var(--muted); -webkit-text-fill-color: var(--muted); }
+  .site-menu {
+    display: none; position: absolute; top: calc(100% + 8px); left: 0;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    overflow: hidden; z-index: 400; box-shadow: 0 8px 24px rgba(0,0,0,.5); min-width: 170px;
+  }
+  .site-menu.open { display: block; }
+  .site-menu-item {
+    display: flex; flex-direction: column; padding: 10px 14px; cursor: pointer;
+    transition: background .1s; border: none; background: none; width: 100%; text-align: left; gap: 2px;
+  }
+  .site-menu-item:hover, .site-menu-item:active { background: var(--surface2); }
+  .site-menu-item.active { background: rgba(124,106,247,.12); }
+  .site-menu-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem; color: var(--text); }
+  .site-menu-item.active .site-menu-name { color: #b8b0ff; }
+  .site-menu-url { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--muted); }
+
+  /* ── Tag pills ── */
+  .tag-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .pill {
+    display: flex; align-items: center; gap: 4px;
+    background: rgba(124,106,247,.18);
+    border: 1px solid rgba(124,106,247,.35);
+    border-radius: 20px;
+    padding: 3px 8px 3px 10px;
+    font-size: 0.72rem;
+    font-family: 'Space Mono', monospace;
+    color: #b8b0ff;
+    cursor: default;
+  }
+  .pill-x {
+    background: none; border: none; cursor: pointer;
+    color: var(--accent2); font-size: 0.9rem; line-height: 1;
+    padding: 0; flex-shrink: 0;
+  }
+
+  /* ── Filter row ── */
+  .filters {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .filters::-webkit-scrollbar { display: none; }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .filter-label {
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    flex-shrink: 0;
+  }
+
+  select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 22px 5px 8px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b6b85'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    cursor: pointer;
+    min-width: 90px;
+  }
+  select:focus { border-color: var(--accent); }
+
+  /* ── Rating toggle ── */
+  .rating-group {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .rating-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    transition: all .15s;
+    flex-shrink: 0;
+  }
+  .rating-btn.active {
+    background: rgba(124,106,247,.25);
+    border-color: var(--accent);
+    color: #b8b0ff;
+  }
+
+  /* ── Layout ── */
+  #grid {
+    column-count: 3;
+    column-gap: 12px;
+    padding: 12px 8px;
+  }
+
+  @media (max-width: 1024px) {
+    #grid { column-count: 2; }
+  }
+
+  @media (max-width: 640px) {
+    #grid { 
+      column-count: 1;
+      column-gap: 0;
+      padding: 10px 8px;
+    }
+  }
+
+  .post-card {
+    break-inside: avoid;
+    margin-bottom: 12px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    position: relative;
+    transition: transform .2s, box-shadow .2s;
+    animation: fadeUp .35s ease both;
+    display: block;
+    width: 100%;
+  }
+  .post-card:active { transform: scale(0.98); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .post-card img, .post-card video {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .post-card .rating-badge {
+    position: absolute;
+    top: 6px; right: 6px;
+    font-size: 0.6rem;
+    font-family: 'Space Mono', monospace;
+    padding: 2px 5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    font-weight: 700;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .rb-g { background: rgba(74,222,128,.2); color: #4ade80; border: 1px solid rgba(74,222,128,.35); }
+  .rb-s { background: rgba(251,191,36,.2); color: #fbbf24; border: 1px solid rgba(251,191,36,.35); }
+  .rb-q { background: rgba(249,115,22,.2); color: #f97316; border: 1px solid rgba(249,115,22,.35); }
+  .rb-e { background: rgba(239,68,68,.2); color: #ef4444; border: 1px solid rgba(239,68,68,.35); }
+
+  /* ── Loader ── */
+  #loader {
+    text-align: center;
+    padding: 24px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-family: 'Space Mono', monospace;
+    display: none;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin: 0 auto 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #sentinel { height: 1px; }
+
+  /* ── Empty / Error state ── */
+  .state-msg {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    display: none;
+  }
+  .state-msg .icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .state-msg p { line-height: 1.6; }
+
+  /* ── Lightbox ── */
+  #lightbox {
+    display: none;
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,.92);
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #lightbox.open { display: flex; }
+
+  .lb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .lb-close {
+    background: none; border: none; color: var(--text);
+    font-size: 1.5rem; cursor: pointer; line-height: 1;
+    padding: 4px 8px;
+  }
+  .lb-actions {
+    display: flex; gap: 8px;
+  }
+  .lb-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: var(--text);
+    font-size: 0.75rem;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+
+  .lb-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lb-img-wrap {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #lb-image {
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: var(--radius);
+    object-fit: contain;
+    display: block;
+  }
+
+  .lb-tags {
+    width: 100%;
+    max-width: 800px;
+  }
+  .lb-tags-title {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+  .lb-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .lb-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .lb-tag:hover, .lb-tag:active { border-color: var(--accent); color: #b8b0ff; }
+
+  /* ── NSFW blur toggle ── */
+  .nsfw-wrap { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+  .nsfw-label { font-size: 0.7rem; color: var(--muted); }
+  .toggle {
+    position: relative;
+    width: 34px; height: 18px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+  .toggle-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 12px; height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    transition: left .2s;
+    pointer-events: none;
+  }
+  .toggle input:checked ~ .toggle-thumb { left: 18px; }
+
+  .blurred img, .blurred video { filter: blur(18px); transition: filter .2s; }
+  .blurred:active img, .blurred:active video { filter: blur(0); }
+
+  .video-badge {
+    position: absolute; bottom: 6px; left: 6px;
+    background: rgba(0,0,0,.6); color: #fff;
+    font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<header id="main-header">
+  <div class="header-top">
+    <div class="site-picker">
+      <button class="site-btn" id="site-btn">
+        <span class="site-btn-wrap"><span id="site-label">danbooru</span><span class="site-caret">▾</span></span>
+      </button>
+      <div class="site-menu" id="site-menu">
+        <button class="site-menu-item active" data-site="danbooru">
+          <span class="site-menu-name">danbooru</span>
+          <span class="site-menu-url">danbooru.donmai.us</span>
+        </button>
+        <button class="site-menu-item" data-site="rule34">
+          <span class="site-menu-name">rule34</span>
+          <span class="site-menu-url">rule34.xxx</span>
+        </button>
+        <button class="site-menu-item" data-site="yandere">
+          <span class="site-menu-name">yande.re</span>
+          <span class="site-menu-url">yande.re</span>
+        </button>
+        <button class="site-menu-item" data-site="gelbooru">
+          <span class="site-menu-name">gelbooru</span>
+          <span class="site-menu-url">gelbooru.com</span>
+        </button>
+        <button class="site-menu-item" data-site="aibooru">
+          <span class="site-menu-name">aibooru</span>
+          <span class="site-menu-url">aibooru.online</span>
+        </button>
+        <button class="site-menu-item" data-site="civitai">
+          <span class="site-menu-name">civitai</span>
+          <span class="site-menu-url">civitai.com</span>
+        </button>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <input id="tag-input" type="text" placeholder="add tags…" autocorrect="off" autocapitalize="none" spellcheck="false">
+      <button class="search-btn" id="search-btn" title="Search">⏎</button>
+      <div id="autocomplete"></div>
+    </div>
+
+    <button id="settings-btn" title="Settings" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">⚙</button>
+    <div class="nsfw-wrap">
+      <span class="nsfw-label">blur</span>
+      <label class="toggle">
+        <input type="checkbox" id="blur-toggle">
+        <span class="toggle-track"></span>
+        <span class="toggle-thumb"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="tag-pills" id="tag-pills"></div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <span class="filter-label">order</span>
+      <select id="order-select">
+        <option value="">latest</option>
+        <option value="order:score" selected>top score</option>
+        <option value="order:favcount">most faved</option>
+        <option value="order:rank">trending</option>
+        <option value="order:random">random</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label" id="age-filter-label">age</span>
+      <select id="age-select">
+        <option value="">any time</option>
+        <option value="age:..1d" selected>today</option>
+        <option value="age:..3d">3 days</option>
+        <option value="age:..1w">this week</option>
+        <option value="age:..1mo">this month</option>
+      </select>
+    </div>
+    <div class="filter-group" id="rating-filter-group">
+      <span class="filter-label">rating</span>
+      <div class="rating-group" id="rating-group">
+        <button class="rating-btn active" data-val="">all</button>
+        <button class="rating-btn" data-val="rating:g">g</button>
+        <button class="rating-btn" data-val="rating:s">s</button>
+        <button class="rating-btn" data-val="rating:q">q</button>
+        <button class="rating-btn" data-val="rating:e">e</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div id="grid"></div>
+<div id="loader"><div class="spinner"></div>loading…</div>
+<div class="state-msg" id="empty-msg">
+  <div class="icon">🔍</div>
+  <p>No posts found.<br>Try different tags or filters.</p>
+</div>
+<div class="state-msg" id="error-msg">
+  <div class="icon">⚠️</div>
+  <p id="error-text">Something went wrong.<br>Check your connection and try again.</p>
+</div>
+<div id="sentinel"></div>
+
+<div id="lightbox">
+  <div class="lb-header">
+    <div class="lb-actions">
+      <a id="lb-open" href="#" target="_blank" rel="noopener" class="lb-btn">↗ open</a>
+      <a id="lb-dl" href="#" download class="lb-btn">⬇ save</a>
+    </div>
+    <button class="lb-close" id="lb-close">✕</button>
+  </div>
+  <div class="lb-body">
+    <div class="lb-img-wrap"><img id="lb-image" src="" alt=""></div>
+    <div class="lb-tags">
+      <div class="lb-tags-title">tags — tap to filter</div>
+      <div class="lb-tag-list" id="lb-tags"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CORS Proxy ────────────────────────────────────────────────────────────────
+const p = url => PROXY + url; // wrap any URL through proxy
+
+// ── Global Rule34 ID State tracking ──────────────────────────────────────────
+let rule34LatestId = null;
+let gelbooruLatestId = null;
+
+// ── Site configs ─────────────────────────────────────────────────────────────
+const SITES = {
+  danbooru: {
+    label: 'danbooru',
+    buildPostsUrl(tags, order, age, rating, page) {
+      const parts = [...tags];
+      if (order)  parts.push(order);
+      if (age)    parts.push(age);
+      if (rating) parts.push(rating);
+      return p(`https://danbooru.donmai.us/posts.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20`);
+    },
+    parsePosts(data) {
+      return (Array.isArray(data) ? data : []).map(post => ({
+        id: post.id, file_ext: post.file_ext || '', rating: post.rating || 'g',
+        thumb: post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
+        full:  post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
+        tags: [
+          ...(post.tag_string_artist    || '').split(' '),
+          ...(post.tag_string_character || '').split(' '),
+          ...(post.tag_string_general   || '').split(' '),
+        ].filter(Boolean),
+        pageUrl: `https://danbooru.donmai.us/posts/${post.id}`,
+      }));
+    },
+    buildAcUrl(q) {
+      return p(`https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`);
+    },
+    parseAc(data) {
+      return (Array.isArray(data) ? data : []).map(t => ({ name: t.name, count: t.post_count, category: t.category }));
+    },
+  },
+  rule34: {
+    label: 'rule34',
+    buildPostsUrl(tags, order, age, rating, page) {
+      const parts = [...tags];
+      
+      if (order === 'order:score' || order === 'order:favcount' || order === 'order:rank') parts.push('sort:score:desc');
+      else if (order === 'order:random') parts.push('sort:random');
+      
+      if (age && rule34LatestId) {
+        const spanModifier = { 'age:..1d': 1, 'age:..3d': 3, 'age:..1w': 7, 'age:..1mo': 30 }[age];
+        if (spanModifier) {
+          const idFloor = rule34LatestId - (spanModifier * 10000);
+          parts.push(`id:>${idFloor}`);
+        }
+      }
+      
+      // Kept unproxied connection configuration matching your instruction
+      return p(`https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&tags=${encodeURIComponent(parts.join(' '))}&pid=${page - 1}&limit=20&user_id=${encodeURIComponent(CFG.r34uid)}&api_key=${encodeURIComponent(CFG.r34key)}`);
+    },
+    parsePosts(data) {
+      const posts = Array.isArray(data) ? data : [];
+      const rmap = { general: 'g', safe: 'g', sensitive: 's', questionable: 'q', explicit: 'e' };
+      return posts.map(post => ({
+        id: post.id,
+        file_ext: (post.file_url || '').split('.').pop().toLowerCase(),
+        rating: rmap[post.rating] || (post.rating || 'e')[0],
+        thumb: post.file_url ? p(post.file_url) : post.sample_url ? p(post.sample_url) : post.preview_url ? p(post.preview_url) : null,
+        full:  post.file_url ? p(post.file_url) : post.sample_url ? p(post.sample_url) : post.preview_url ? p(post.preview_url) : null,
+        tags: (post.tags || '').split(' ').filter(Boolean),
+        pageUrl: `https://rule34.xxx/index.php?page=post&s=view&id=${post.id}`,
+      }));
+    },
+    buildAcUrl(q) {
+      // Changed autocomplete target selection to leverage Danbooru tags logic natively across both source options
+      return p(`https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`);
+    },
+    parseAc(data) {
+      return (Array.isArray(data) ? data : []).map(t => ({ 
+        name: t.name, 
+        count: t.post_count !== undefined ? t.post_count : 0, 
+        category: t.category !== undefined ? t.category : 0 
+      }));
+    },
+  },
+  yandere: {
+    label: 'yande.re',
+    needsCreds: false,
+    buildPostsUrl(tags, order, age, rating, page) {
+      const parts = [...tags];
+      if (order === 'order:score' || order === 'order:favcount' || order === 'order:rank') parts.push('order:score');
+      else if (order === 'order:random') parts.push('order:random');
+      if (age) {
+        const d = new Date();
+        const days = { 'age:..1d': 1, 'age:..3d': 3, 'age:..1w': 7, 'age:..1mo': 30 }[age];
+        if (days) d.setDate(d.getDate() - days);
+        parts.push(`date:>${d.toISOString().slice(0,10)}`);
+      }
+      if (rating) {
+        const rmap = { 'rating:g': 'rating:s', 'rating:s': 'rating:s', 'rating:q': 'rating:q', 'rating:e': 'rating:e' };
+        parts.push(rmap[rating] || rating);
+      }
+      return p(`https://yande.re/post.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20`);
+    },
+    parsePosts(data) {
+      return (Array.isArray(data) ? data : []).map(post => ({
+        id: post.id,
+        file_ext: post.file_ext || '',
+        rating: post.rating === 's' ? 'g' : post.rating === 'q' ? 'q' : post.rating === 'e' ? 'e' : 'g',
+        thumb: post.sample_url ? p(post.sample_url) : post.jpeg_url ? p(post.jpeg_url) : post.file_url ? p(post.file_url) : null,
+        full:  post.jpeg_url   ? p(post.jpeg_url)  : post.file_url  ? p(post.file_url)  : null,
+        tags: (post.tags || '').split(' ').filter(Boolean),
+        pageUrl: `https://yande.re/post/show/${post.id}`,
+      }));
+    },
+    buildAcUrl(q) {
+      return p(`https://yande.re/tag.json?name=${encodeURIComponent(q)}*&order=count&limit=8`);
+    },
+    parseAc(data) {
+      return (Array.isArray(data) ? data : []).map(t => ({ name: t.name, count: t.count, category: t.type }));
+    },
+  },
+  gelbooru: {
+    label: 'gelbooru',
+    buildPostsUrl(tags, order, age, rating, page, latestId) {
+      const parts = [...tags];
+      if (order === 'order:score' || order === 'order:favcount' || order === 'order:rank') parts.push('sort:score');
+      else if (order === 'order:random') parts.push('sort:random');
+      if (age && latestId) {
+        const days = { 'age:..1d': 1, 'age:..3d': 3, 'age:..1w': 7, 'age:..1mo': 30 }[age];
+        if (days) { const idFloor = latestId - (days * 5500); parts.push(`id:>=${idFloor}`); }
+      }
+      if (rating) {
+        const rmap = { 'rating:g': 'rating:general', 'rating:s': 'rating:sensitive', 'rating:q': 'rating:questionable', 'rating:e': 'rating:explicit' };
+        if (rmap[rating]) parts.push(rmap[rating]);
+      }
+      const pid = page - 1;
+      return p(`https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&tags=${encodeURIComponent(parts.join(' '))}&pid=${pid}&limit=20`);
+    },
+    parsePosts(data) {
+      const posts = Array.isArray(data?.post) ? data.post : Array.isArray(data) ? data : [];
+      const rmap = { general: 'g', sensitive: 's', questionable: 'q', explicit: 'e' };
+      return posts.map(post => ({
+        id: post.id,
+        file_ext: (post.file_url || '').split('.').pop().toLowerCase(),
+        rating: rmap[post.rating] || (post.rating || 'g')[0],
+        thumb: post.preview_url ? p(post.preview_url) : post.sample_url ? p(post.sample_url) : post.file_url ? p(post.file_url) : null,
+        full:  post.file_url ? p(post.file_url) : post.sample_url ? p(post.sample_url) : null,
+        tags: (post.tags || '').split(' ').filter(Boolean),
+        pageUrl: `https://gelbooru.com/index.php?page=post&s=view&id=${post.id}`,
+      }));
+    },
+    buildAcUrl(q) {
+      return p(`https://gelbooru.com/index.php?page=dapi&s=tag&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&name_pattern=${encodeURIComponent(q)}%25&orderby=count&limit=8`);
+    },
+    parseAc(data) {
+      const tags = Array.isArray(data?.tag) ? data.tag : Array.isArray(data) ? data : [];
+      return tags.map(t => ({ name: t.name, count: t.count, category: t.type }));
+    },
+  },
+  aibooru: {
+    label: 'aibooru',
+    login: () => CFG.ailogin,
+    apiKey: () => CFG.aikey,
+    buildPostsUrl(tags, order, age, rating, page) {
+      const parts = [...tags];
+      if (order)  parts.push(order);
+      if (age)    parts.push(age);
+      if (rating) parts.push(rating);
+      const creds = CFG.ailogin && CFG.aikey ? `&login=${encodeURIComponent(CFG.ailogin)}&api_key=${encodeURIComponent(CFG.aikey)}` : '';
+      return `https://aibooru.online/posts.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20${creds}`;
+    },
+    parsePosts(data) {
+      return (Array.isArray(data) ? data : []).map(post => ({
+        id: post.id, file_ext: post.file_ext || '', rating: post.rating || 'g',
+        thumb: post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
+        full:  post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
+        tags: [...(post.tag_string_artist||'').split(' '), ...(post.tag_string_character||'').split(' '), ...(post.tag_string_general||'').split(' ')].filter(Boolean),
+        pageUrl: `https://aibooru.online/posts/${post.id}`,
+      }));
+    },
+    buildAcUrl(q) {
+      return `https://aibooru.online/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`;
+    },
+    parseAc(data) {
+      return (Array.isArray(data) ? data : []).map(t => ({ name: t.name, count: t.post_count, category: t.category }));
+    },
+  },
+  civitai: {
+    label: 'civitai',
+    buildPostsUrl(tags, order, age, rating, page, _latestId, cursor) {
+      const sortMap = {
+        '':               'Newest',
+        'order:score':    'Most Reactions',
+        'order:favcount': 'Most Collected',
+        'order:rank':     'Most Reactions',
+        'order:random':   'Random',
+      };
+      const periodMap = {
+        '':          'AllTime',
+        'age:..1d':  'Day',
+        'age:..3d':  'Day',
+        'age:..1w':  'Week',
+        'age:..1mo': 'Month',
+      };
+      const nsfwMap = {
+        '':          31,
+        'rating:g':  1,
+        'rating:s':  3,
+        'rating:q':  7,
+        'rating:e':  31,
+      };
+      const sort          = sortMap[order]  ?? 'Newest';
+      const period        = periodMap[age]  ?? 'AllTime';
+      const browsingLevel = nsfwMap[rating] ?? 31;
+      let url = `https://civitai.com/api/v1/images?limit=20&sort=${encodeURIComponent(sort)}&period=${period}&browsingLevel=${browsingLevel}`;
+      if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+      if (tags.length) url += `&username=${encodeURIComponent(tags[0])}`;
+      return p(url);
+    },
+    parsePosts(data) {
+      const items = Array.isArray(data?.items) ? data.items : [];
+      const nsfwMap = { None: 'g', Soft: 's', Mature: 'q', X: 'e' };
+      return items.map(item => ({
+        id: item.id,
+        file_ext: item.type === 'video' ? 'mp4' : (item.url?.split('.').pop()?.split('?')[0]?.toLowerCase() || 'jpg'),
+        rating: nsfwMap[item.nsfwLevel] || 'e',
+        thumb: item.url ? p(item.url + '/width=450') : null,
+        full:  item.url ? p(item.url) : null,
+        tags: item.meta?.prompt ? item.meta.prompt.split(',').map(t => t.trim()).filter(Boolean).slice(0, 20) : [],
+        pageUrl: `https://civitai.com/images/${item.id}`,
+      }));
+    },
+    buildAcUrl(q) {
+      return p(`https://civitai.com/api/v1/creators?limit=8&query=${encodeURIComponent(q)}`);
+    },
+    parseAc(data) {
+      return (Array.isArray(data?.items) ? data.items : []).map(u => ({ name: u.username, count: u.uploadCount || 0, category: 0 }));
+    },
+  },
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentSite = SITES.danbooru;
+let tags      = [];
+let page      = 1;
+let loading   = false;
+let exhausted = false;
+let blurNSFW  = false;
+let ratingVal = '';
+let civitaiCursor = null;
+
+// ── Elements ──────────────────────────────────────────────────────────────────
+const headerEl         = document.getElementById('main-header');
+const siteBtnEl        = document.getElementById('site-btn');
+const siteMenuEl       = document.getElementById('site-menu');
+const siteLabelEl      = document.getElementById('site-label');
+const ageFilterLabel   = document.getElementById('age-filter-label');
+const ratingFilterGroup = document.getElementById('rating-filter-group');
+const grid             = document.getElementById('grid');
+const loader           = document.getElementById('loader');
+const emptyMsg         = document.getElementById('empty-msg');
+const errorMsg         = document.getElementById('error-msg');
+const errorText        = document.getElementById('error-text');
+const tagInput         = document.getElementById('tag-input');
+const searchBtn        = document.getElementById('search-btn');
+const tagPills         = document.getElementById('tag-pills');
+const orderSel         = document.getElementById('order-select');
+const ageSel           = document.getElementById('age-select');
+const ratingGroup      = document.getElementById('rating-group');
+const blurToggle       = document.getElementById('blur-toggle');
+const sentinel         = document.getElementById('sentinel');
+const lightbox         = document.getElementById('lightbox');
+const lbOpen           = document.getElementById('lb-open');
+const lbDl             = document.getElementById('lb-dl');
+const lbClose          = document.getElementById('lb-close');
+const lbTagsList       = document.getElementById('lb-tags');
+
+// ── Site picker ───────────────────────────────────────────────────────────────
+siteBtnEl.addEventListener('click', e => { e.stopPropagation(); siteMenuEl.classList.toggle('open'); });
+document.addEventListener('click', () => siteMenuEl.classList.remove('open'));
+siteMenuEl.addEventListener('click', e => {
+  const item = e.target.closest('.site-menu-item');
+  if (!item) return;
+  const key = item.dataset.site;
+  if (!SITES[key]) return;
+  currentSite = SITES[key];
+  siteLabelEl.textContent = currentSite.label;
+  
+  if (key === 'rule34') {
+    ageFilterLabel.textContent = "id filtering";
+    ratingFilterGroup.style.display = 'none';
+    ratingVal = '';
+  } else if (key === 'gelbooru') {
+    ageFilterLabel.textContent = "id filtering";
+    ratingFilterGroup.style.display = 'flex';
+    gelbooruLatestId = null;
+  } else if (key === 'aibooru') {
+    ageFilterLabel.textContent = "age";
+    ratingFilterGroup.style.display = 'flex';
+    tagInput.placeholder = 'add tags…';
+  } else if (key === 'civitai') {
+    ageFilterLabel.textContent = "period";
+    ratingFilterGroup.style.display = 'flex';
+    civitaiCursor = null;
+    tagInput.placeholder = 'filter by username…';
+  } else {
+    ageFilterLabel.textContent = "age";
+    ratingFilterGroup.style.display = 'flex';
+    tagInput.placeholder = 'add tags…';
+  }
+  
+  siteMenuEl.querySelectorAll('.site-menu-item').forEach(el => el.classList.toggle('active', el.dataset.site === key));
+  siteMenuEl.classList.remove('open');
+  reset();
+});
+
+// ── Auto-hiding header ────────────────────────────────────────────────────────
+let lastScrollTop = 0;
+window.addEventListener('scroll', () => {
+  const cur = window.pageYOffset || document.documentElement.scrollTop;
+  if (cur > lastScrollTop && cur > headerEl.offsetHeight) headerEl.classList.add('header-hidden');
+  else headerEl.classList.remove('header-hidden');
+  lastScrollTop = Math.max(0, cur);
+}, { passive: true });
+
+// ── Rating ────────────────────────────────────────────────────────────────────
+ratingGroup.addEventListener('click', e => {
+  const btn = e.target.closest('.rating-btn');
+  if (!btn) return;
+  ratingGroup.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ratingVal = btn.dataset.val;
+  reset();
+});
+
+// ── Blur ──────────────────────────────────────────────────────────────────────
+blurToggle.addEventListener('change', () => {
+  blurNSFW = blurToggle.checked;
+  document.querySelectorAll('.post-card').forEach(card => applyBlur(card, card.dataset.rating));
+});
+function applyBlur(card, rating) {
+  card.classList.toggle('blurred', blurNSFW && ['s','q','e'].includes(rating));
+}
+
+// ── Tags ──────────────────────────────────────────────────────────────────────
+function addTag(raw) {
+  raw.trim().split(/\s+/).filter(Boolean).forEach(t => { if (!tags.includes(t)) tags.push(t); });
+  renderPills(); reset();
+}
+function removeTag(t) { tags = tags.filter(x => x !== t); renderPills(); reset(); }
+function renderPills() {
+  tagPills.innerHTML = '';
+  tags.forEach(t => {
+    const pill = document.createElement('div');
+    pill.className = 'pill';
+    pill.innerHTML = `<span>${escHtml(t)}</span><button class="pill-x" aria-label="remove">×</button>`;
+    pill.querySelector('.pill-x').addEventListener('click', () => removeTag(t));
+    tagPills.appendChild(pill);
+  });
+}
+searchBtn.addEventListener('click', commitInput);
+function commitInput() {
+  const val = tagInput.value.trim();
+  if (val) { addTag(val); tagInput.value = ''; closeAc(); } else reset();
+}
+orderSel.addEventListener('change', reset);
+ageSel.addEventListener('change', reset);
+
+// ── Pre-Fetch Helper for Rule34 ──────────────────────────────────────────────
+async function ensureRule34LatestId() {
+  if (rule34LatestId) return true;
+  try {
+    const checkUrl = p(`https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=1&user_id=${encodeURIComponent(CFG.r34uid)}&api_key=${encodeURIComponent(CFG.r34key)}`);
+    const res = await fetch(checkUrl);
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data && data[0] && data[0].id) {
+      rule34LatestId = parseInt(data[0].id, 10);
+      return true;
+    }
+  } catch (e) {
+    console.error("Failed fetching context ID benchmark boundary sync state", e);
+  }
+  return false;
+}
+
+// ── Pre-Fetch Helper for Gelbooru ─────────────────────────────────────────────
+async function ensureGelbooruLatestId() {
+  if (gelbooruLatestId) return true;
+  try {
+    const checkUrl = p(`https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&limit=1`);
+    const res = await fetch(checkUrl);
+    if (!res.ok) return false;
+    const data = await res.json();
+    const posts = Array.isArray(data?.post) ? data.post : [];
+    if (posts[0]?.id) { gelbooruLatestId = parseInt(posts[0].id, 10); return true; }
+  } catch (e) { console.error('Failed fetching Gelbooru latest ID', e); }
+  return false;
+}
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+async function fetchPosts() {
+  if (loading || exhausted) return;
+  loading = true;
+  loader.style.display = 'block';
+  emptyMsg.style.display = 'none';
+  errorMsg.style.display = 'none';
+
+  if (currentSite.label === 'rule34' && ageSel.value) {
+    const success = await ensureRule34LatestId();
+    if (!success) {
+      errorText.textContent = "Error synchronizing dynamic ID markers from Rule34 network nodes.";
+      errorMsg.style.display = 'block';
+      loading = false;
+      loader.style.display = 'none';
+      return;
+    }
+  }
+
+  if (currentSite.label === 'gelbooru' && ageSel.value) {
+    const success = await ensureGelbooruLatestId();
+    if (!success) {
+      errorText.textContent = "Error fetching latest Gelbooru ID for age filter.";
+      errorMsg.style.display = 'block';
+      loading = false;
+      loader.style.display = 'none';
+      return;
+    }
+  }
+
+  const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
+  const url = currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page, latestId, civitaiCursor);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const raw   = await res.json();
+    if (raw.metadata?.nextCursor !== undefined) civitaiCursor = raw.metadata.nextCursor || null;
+    const posts = currentSite.parsePosts(raw);
+    if (!posts.length) {
+      exhausted = true;
+      if (page === 1) emptyMsg.style.display = 'block';
+    } else {
+      posts.forEach(renderPost);
+      page++;
+    }
+  } catch (err) {
+    errorText.textContent = `Error: ${err.message}`;
+    errorMsg.style.display = 'block';
+    console.error(err);
+  } finally {
+    loading = false;
+    loader.style.display = 'none';
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderPost(post) {
+  const isVideo = ['webm', 'mp4'].includes(post.file_ext);
+  if (!post.thumb) return;
+  const rCls = { g:'rb-g', s:'rb-s', q:'rb-q', e:'rb-e' };
+  const rLbl = { g:'G', s:'S', q:'Q', e:'E' };
+  const rating = post.rating || 'g';
+
+  const card = document.createElement('div');
+  card.className = 'post-card';
+  card.dataset.rating = rating;
+
+  if (isVideo) {
+    card.innerHTML = `
+      <video src="${escHtml(post.full)}" crossorigin="anonymous" muted loop playsinline preload="metadata" style="width:100%;display:block;"></video>
+      <span class="rating-badge ${rCls[rating]||'rb-g'}">${rLbl[rating]||'?'}</span>
+      <span class="video-badge">▶</span>`;
+    const vid = card.querySelector('video');
+    card.addEventListener('mouseenter', () => vid.play());
+    card.addEventListener('mouseleave', () => { vid.pause(); vid.currentTime = 0; });
+    card.addEventListener('touchstart', () => vid.paused ? vid.play() : null, { passive: true });
+  } else {
+    card.innerHTML = `
+      <img src="${escHtml(post.thumb)}" crossorigin="anonymous" loading="lazy" alt="" decoding="async">
+      <span class="rating-badge ${rCls[rating]||'rb-g'}">${rLbl[rating]||'?'}</span>`;
+  }
+
+  applyBlur(card, rating);
+  card.addEventListener('click', () => openLightbox(post, isVideo));
+  grid.appendChild(card);
+}
+
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+function openLightbox(post, isVideo) {
+  const wrap = document.querySelector('.lb-img-wrap');
+  wrap.innerHTML = isVideo
+    ? `<video src="${escHtml(post.full)}" crossorigin="anonymous" controls autoplay loop playsinline style="max-width:100%;max-height:70vh;border-radius:var(--radius);display:block;"></video>`
+    : `<img src="${escHtml(post.full)}" crossorigin="anonymous" alt="" style="max-width:100%;max-height:70vh;border-radius:var(--radius);object-fit:contain;display:block;">`;
+  lbOpen.href = post.pageUrl;
+  lbDl.href   = post.full;
+
+  lbTagsList.innerHTML = '';
+  post.tags.forEach(t => {
+    if (!t) return;
+    const btn = document.createElement('button');
+    btn.className = 'lb-tag'; btn.textContent = t;
+    btn.addEventListener('click', () => {
+      if (!tags.includes(t)) { tags.push(t); renderPills(); reset(); }
+      closeLightbox();
+    });
+    lbTagsList.appendChild(btn);
+  });
+  lightbox.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  lightbox.classList.remove('open');
+  const wrap = document.querySelector('.lb-img-wrap');
+  const vid = wrap.querySelector('video');
+  if (vid) vid.pause();
+  wrap.innerHTML = '';
+  document.body.style.overflow = '';
+}
+lbClose.addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ── Reset / Infinite scroll ───────────────────────────────────────────────────
+function reset() {
+  page = 1; exhausted = false; civitaiCursor = null;
+  grid.innerHTML = '';
+  emptyMsg.style.display = 'none';
+  errorMsg.style.display = 'none';
+  fetchPosts();
+}
+new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting) fetchPosts();
+}, { rootMargin: '400px' }).observe(sentinel);
+
+// ── Util ──────────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Autocomplete ──────────────────────────────────────────────────────────────
+const acBox = document.getElementById('autocomplete');
+let acTimer = null, acSelected = -1, acItems = [];
+
+tagInput.addEventListener('input', () => {
+  clearTimeout(acTimer);
+  const lastWord = tagInput.value.trim().split(/\s+/).pop();
+  if (!lastWord) { closeAc(); return; }
+  acTimer = setTimeout(() => fetchAc(lastWord), 200);
+});
+tagInput.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveAc(1); return; }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); moveAc(-1); return; }
+  if (e.key === 'Escape')    { closeAc(); return; }
+  if (e.key === 'Enter') {
+    if (acSelected >= 0 && acItems[acSelected]) { e.preventDefault(); pickAc(acItems[acSelected].name); return; }
+    commitInput();
+  }
+});
+tagInput.addEventListener('blur', () => setTimeout(closeAc, 150));
+
+async function fetchAc(query) {
+  try {
+    const res = await fetch(currentSite.buildAcUrl(query));
+    if (!res.ok) return;
+    const data = await res.json();
+    acItems = currentSite.parseAc(data);
+    renderAc(query, acItems);
+  } catch { closeAc(); }
+}
+function renderAc(query, items) {
+  if (!items.length) { closeAc(); return; }
+  acSelected = -1; acBox.innerHTML = '';
+  items.forEach(tag => {
+    const div = document.createElement('div');
+    div.className = 'ac-item';
+    const name = tag.name;
+    div.innerHTML = `
+      <span class="ac-item-cat cat-${tag.category}"></span>
+      <span class="ac-item-name"><em>${escHtml(name.slice(0, query.length))}</em>${escHtml(name.slice(query.length))}</span>
+      <span class="ac-item-count">${fmtCount(tag.count)}</span>`;
+    div.addEventListener('mousedown', e => { e.preventDefault(); pickAc(name); });
+    acBox.appendChild(div);
+  });
+  acBox.classList.add('open');
+}
+function moveAc(dir) {
+  const items = acBox.querySelectorAll('.ac-item');
+  if (!items.length) return;
+  items[acSelected]?.classList.remove('active');
+  acSelected = Math.max(-1, Math.min(items.length - 1, acSelected + dir));
+  if (acSelected >= 0) items[acSelected].classList.add('active');
+}
+function pickAc(name) {
+  const parts = tagInput.value.trim().split(/\s+/);
+  parts[parts.length - 1] = name;
+  tagInput.value = ''; addTag(parts.join(' ')); closeAc();
+}
+function closeAc() {
+  acBox.classList.remove('open'); acBox.innerHTML = ''; acSelected = -1; acItems = [];
+}
+function fmtCount(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000)    return (n/1000).toFixed(1) + 'k';
+  return String(n);
+}
+
+
+// ── Settings panel ────────────────────────────────────────────────────────────
+const settingsBtn     = document.getElementById('settings-btn');
+const settingsOverlay = document.getElementById('settings-overlay');
+const settingsModal   = document.getElementById('settings-modal');
+const settingsClose   = document.getElementById('settings-close');
+const settingsSave    = document.getElementById('settings-save');
+const settingsSaved   = document.getElementById('settings-saved');
+
+function openSettings() {
+  document.getElementById('cfg-proxy').value    = CFG.proxy;
+  document.getElementById('cfg-r34-uid').value  = CFG.r34uid;
+  document.getElementById('cfg-r34-key').value  = CFG.r34key;
+  document.getElementById('cfg-gel-uid').value  = CFG.geluid;
+  document.getElementById('cfg-gel-key').value  = CFG.gelkey;
+  document.getElementById('cfg-civ-key').value  = CFG.civkey;
+  document.getElementById('cfg-ai-login').value = CFG.ailogin;
+  document.getElementById('cfg-ai-key').value   = CFG.aikey;
+  settingsOverlay.style.display = 'block';
+  settingsModal.style.display   = 'block';
+}
+function closeSettings() {
+  settingsOverlay.style.display = 'none';
+  settingsModal.style.display   = 'none';
+  settingsSaved.style.display   = 'none';
+}
+settingsBtn.addEventListener('click', openSettings);
+settingsClose.addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', closeSettings);
+settingsSave.addEventListener('click', () => {
+  localStorage.setItem('cfg_proxy',    document.getElementById('cfg-proxy').value.trim());
+  localStorage.setItem('cfg_r34_uid',  document.getElementById('cfg-r34-uid').value.trim());
+  localStorage.setItem('cfg_r34_key',  document.getElementById('cfg-r34-key').value.trim());
+  localStorage.setItem('cfg_gel_uid',  document.getElementById('cfg-gel-uid').value.trim());
+  localStorage.setItem('cfg_gel_key',  document.getElementById('cfg-gel-key').value.trim());
+  localStorage.setItem('cfg_civ_key',  document.getElementById('cfg-civ-key').value.trim());
+  localStorage.setItem('cfg_ai_login', document.getElementById('cfg-ai-login').value.trim());
+  localStorage.setItem('cfg_ai_key',   document.getElementById('cfg-ai-key').value.trim());
+  settingsSaved.style.display = 'block';
+  setTimeout(() => { closeSettings(); location.reload(); }, 1200);
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+if (!CFG.proxy) {
+  // Show settings on first run so user knows to configure
+  setTimeout(openSettings, 300);
+} else {
+  fetchPosts();
+}
+</script>
+
+<!-- Settings Modal -->
+<div id="settings-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;backdrop-filter:blur(4px);"></div>
+<div id="settings-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:min(480px,90vw);z-index:1000;max-height:85vh;overflow-y:auto;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h2 style="font-size:1rem;font-weight:700;letter-spacing:.05em;">SETTINGS</h2>
+    <button id="settings-close" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;">✕</button>
+  </div>
+  <p style="color:var(--muted);font-size:.8rem;margin-bottom:20px;line-height:1.5;">Credentials are stored in your browser's localStorage — never sent anywhere except the target APIs through your proxy.</p>
+
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;letter-spacing:.05em;">CORS PROXY URL</label>
+      <input id="cfg-proxy" type="text" placeholder="https://your-worker.workers.dev/" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);">
+    <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">RULE34</p>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">User ID</label>
+      <input id="cfg-r34-uid" type="text" placeholder="6256603" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">API Key</label>
+      <input id="cfg-r34-key" type="text" placeholder="your rule34 api key" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);">
+    <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">GELBOORU</p>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">User ID</label>
+      <input id="cfg-gel-uid" type="text" placeholder="1975709" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">API Key</label>
+      <input id="cfg-gel-key" type="text" placeholder="your gelbooru api key" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);">
+    <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">CIVITAI</p>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">API Key</label>
+      <input id="cfg-civ-key" type="text" placeholder="your civitai api key" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);">
+    <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">AIBOORU</p>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">Login</label>
+      <input id="cfg-ai-login" type="text" placeholder="your aibooru username" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">API Key</label>
+      <input id="cfg-ai-key" type="text" placeholder="your aibooru api key" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+  </div>
+
+  <button id="settings-save" style="margin-top:24px;width:100%;background:var(--accent);border:none;border-radius:8px;padding:10px;color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;letter-spacing:.05em;">SAVE</button>
+  <p id="settings-saved" style="text-align:center;color:#6af796;font-size:.8rem;margin-top:8px;display:none;">✓ Saved — reload to apply</p>
+</div>
+
+</body>
+</html>
