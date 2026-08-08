@@ -738,7 +738,7 @@ const SITES = {
         id: post.id,
         file_ext: (post.file_url || '').split('.').pop().toLowerCase(),
         rating: rmap[post.rating] || (post.rating || 'g')[0],
-        thumb: post.preview_url ? p(post.preview_url) : post.sample_url ? p(post.sample_url) : post.file_url ? p(post.file_url) : null,
+        thumb: post.file_url ? p(post.file_url) : post.sample_url ? p(post.sample_url) : post.preview_url ? p(post.preview_url) : null,
         full:  post.file_url ? p(post.file_url) : post.sample_url ? p(post.sample_url) : null,
         tags: (post.tags || '').split(' ').filter(Boolean),
         pageUrl: `https://gelbooru.com/index.php?page=post&s=view&id=${post.id}`,
