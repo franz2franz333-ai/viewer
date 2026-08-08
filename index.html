@@ -609,6 +609,18 @@
 </div>
 
 <script>
+// ── Config (loaded from localStorage) ────────────────────────────────────────
+const CFG = {
+  proxy:   localStorage.getItem('cfg_proxy')    || '',
+  r34uid:  localStorage.getItem('cfg_r34_uid')  || '',
+  r34key:  localStorage.getItem('cfg_r34_key')  || '',
+  geluid:  localStorage.getItem('cfg_gel_uid')  || '',
+  gelkey:  localStorage.getItem('cfg_gel_key')  || '',
+  civkey:  localStorage.getItem('cfg_civ_key')  || '',
+  ailogin: localStorage.getItem('cfg_ai_login') || '',
+  aikey:   localStorage.getItem('cfg_ai_key')   || '',
+};
+
 // ── CORS Proxy ────────────────────────────────────────────────────────────────
 const p = url => CFG.proxy ? CFG.proxy + url : url;
 
@@ -1239,9 +1251,10 @@ function closeSettings() {
   getSettingsSaved().style.display   = 'none';
 }
 settingsBtn.addEventListener('click', openSettings);
-document.getElementById('settings-close').addEventListener('click', closeSettings);
-getSettingsOverlay().addEventListener('click', closeSettings);
-document.getElementById('settings-save').addEventListener('click', () => {
+window.addEventListener('load', () => {
+  document.getElementById('settings-close').addEventListener('click', closeSettings);
+  getSettingsOverlay().addEventListener('click', closeSettings);
+  document.getElementById('settings-save').addEventListener('click', () => {
   localStorage.setItem('cfg_proxy',    document.getElementById('cfg-proxy').value.trim());
   localStorage.setItem('cfg_r34_uid',  document.getElementById('cfg-r34-uid').value.trim());
   localStorage.setItem('cfg_r34_key',  document.getElementById('cfg-r34-key').value.trim());
@@ -1252,6 +1265,7 @@ document.getElementById('settings-save').addEventListener('click', () => {
   localStorage.setItem('cfg_ai_key',   document.getElementById('cfg-ai-key').value.trim());
   getSettingsSaved().style.display = 'block';
   setTimeout(() => { closeSettings(); location.reload(); }, 1200);
+  });
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
