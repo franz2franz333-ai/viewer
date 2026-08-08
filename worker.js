@@ -27,6 +27,14 @@ async function handleRequest(request) {
   newHeaders.delete('Origin')
   newHeaders.delete('Referer')
 
+  // X-DA-Token: client passes the DeviantArt bearer token in this custom header;
+  // worker converts it to Authorization so the browser never sends Authorization directly
+  const daToken = newHeaders.get('X-DA-Token')
+  newHeaders.delete('X-DA-Token')
+  if (daToken) {
+    newHeaders.set('Authorization', `Bearer ${daToken}`)
+  }
+
   // Spoof legitimate browser headers per-site
   if (targetUrlStr.includes('donmai.us')) {
     newHeaders.set('Referer', 'https://danbooru.donmai.us/')
@@ -53,14 +61,14 @@ async function handleRequest(request) {
   }
 
   try {
-    // Forward body for POST requests (needed for DeviantArt OAuth token endpoint)
     const fetchInit = {
       method: request.method,
       headers: newHeaders,
       redirect: 'follow',
     }
     if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') {
-      fetchInit.body = request.body
+      const body = await request.text()
+      if (body) fetchInit.body = body
     }
 
     const response = await fetch(targetUrlStr, fetchInit)
