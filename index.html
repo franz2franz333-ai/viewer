@@ -637,14 +637,14 @@ const SITES = {
       if (order)  parts.push(order);
       if (age)    parts.push(age);
       if (rating) parts.push(rating);
-      return p(`https://danbooru.donmai.us/posts.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20`);
+      // Danbooru API is open CORS — direct fetch avoids worker getting 403'd
+      return `https://danbooru.donmai.us/posts.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20`;
     },
     parsePosts(data) {
       return (Array.isArray(data) ? data : []).map(post => ({
         id: post.id, file_ext: post.file_ext || '', rating: post.rating || 'g',
-        // Danbooru CDN is open CORS — load images directly, no proxy needed
-        thumb: post.large_file_url || post.file_url || post.preview_file_url || null,
-        full:  post.large_file_url || post.file_url || post.preview_file_url || null,
+        thumb: post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
+        full:  post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
         tags: [
           ...(post.tag_string_artist    || '').split(' '),
           ...(post.tag_string_character || '').split(' '),
@@ -654,7 +654,7 @@ const SITES = {
       }));
     },
     buildAcUrl(q) {
-      return p(`https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`);
+      return `https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`;
     },
     parseAc(data) {
       return (Array.isArray(data) ? data : []).map(t => ({ name: t.name, count: t.post_count, category: t.category }));
@@ -694,7 +694,7 @@ const SITES = {
     },
     buildAcUrl(q) {
       // Changed autocomplete target selection to leverage Danbooru tags logic natively across both source options
-      return p(`https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`);
+      return `https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`;
     },
     parseAc(data) {
       return (Array.isArray(data) ? data : []).map(t => ({ 
@@ -728,9 +728,8 @@ const SITES = {
         id: post.id,
         file_ext: post.file_ext || '',
         rating: post.rating === 's' ? 'g' : post.rating === 'q' ? 'q' : post.rating === 'e' ? 'e' : 'g',
-        // yande.re CDN is open CORS — load images directly
-        thumb: post.sample_url || post.jpeg_url || post.file_url || null,
-        full:  post.jpeg_url   || post.file_url || null,
+        thumb: post.sample_url ? p(post.sample_url) : post.jpeg_url ? p(post.jpeg_url) : post.file_url ? p(post.file_url) : null,
+        full:  post.jpeg_url ? p(post.jpeg_url) : post.file_url ? p(post.file_url) : null,
         tags: (post.tags || '').split(' ').filter(Boolean),
         pageUrl: `https://yande.re/post/show/${post.id}`,
       }));
