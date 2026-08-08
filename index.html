@@ -48,8 +48,8 @@
   .header-top {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 6px;
+    margin-bottom: 6px;
   }
 
   @media (max-width: 480px) {
@@ -58,7 +58,7 @@
   }
 
   .logo {
-    font-size: 1.3rem;
+    font-size: 1rem;
     flex-shrink: 1;
     font-weight: 800;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -79,10 +79,10 @@
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 8px 36px 8px 12px;
+    padding: 5px 30px 5px 9px;
     color: var(--text);
     font-family: 'Space Mono', monospace;
-    font-size: 0.78rem;
+    font-size: 0.73rem;
     outline: none;
     transition: border-color .2s;
   }
@@ -151,7 +151,7 @@
   /* ── Site picker ── */
   .site-picker { position: relative; flex-shrink: 0; }
   .site-btn {
-    font-size: 1.3rem; font-weight: 800;
+    font-size: 1rem; font-weight: 800;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     cursor: pointer; border: none; padding: 0;
@@ -203,7 +203,7 @@
   /* ── Filter row ── */
   .filters {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
     padding-bottom: 2px;
@@ -229,10 +229,10 @@
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 5px 22px 5px 8px;
+    padding: 4px 18px 4px 7px;
     color: var(--text);
     font-family: 'Syne', sans-serif;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     outline: none;
     appearance: none;
     -webkit-appearance: none;
@@ -254,8 +254,8 @@
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 5px 9px;
-    font-size: 0.72rem;
+    padding: 4px 7px;
+    font-size: 0.68rem;
     color: var(--muted);
     cursor: pointer;
     font-family: 'Syne', sans-serif;
@@ -474,7 +474,7 @@
   <div class="header-top">
     <div class="site-picker">
       <button class="site-btn" id="site-btn">
-        <span class="site-btn-wrap"><span id="site-label">danbooru</span><span class="site-caret">▾</span></span>
+        <span class="site-btn-wrap"><span id="site-label">D</span><span class="site-caret">▾</span></span>
       </button>
       <div class="site-menu" id="site-menu">
         <button class="site-menu-item active" data-site="danbooru">
