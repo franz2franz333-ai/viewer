@@ -55,7 +55,6 @@
   @media (max-width: 480px) {
     .logo { font-size: 1rem; }
     #tag-input { font-size: 0.72rem; }
-    .nsfw-label { display: none; }
   }
 
   .logo {
@@ -459,37 +458,7 @@
   }
   .lb-tag:hover, .lb-tag:active { border-color: var(--accent); color: #b8b0ff; }
 
-  /* ── NSFW blur toggle ── */
-  .nsfw-wrap { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
-  .nsfw-label { font-size: 0.7rem; color: var(--muted); }
-  .toggle {
-    position: relative;
-    width: 34px; height: 18px;
-    flex-shrink: 0;
-  }
-  .toggle input { opacity: 0; width: 0; height: 0; }
-  .toggle-track {
-    position: absolute; inset: 0;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    cursor: pointer;
-    transition: background .2s;
-  }
-  .toggle input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
-  .toggle-thumb {
-    position: absolute;
-    top: 2px; left: 2px;
-    width: 12px; height: 12px;
-    background: #fff;
-    border-radius: 50%;
-    transition: left .2s;
-    pointer-events: none;
-  }
-  .toggle input:checked ~ .toggle-thumb { left: 18px; }
 
-  .blurred img, .blurred video { filter: blur(18px); transition: filter .2s; }
-  .blurred:active img, .blurred:active video { filter: blur(0); }
 
   .video-badge {
     position: absolute; bottom: 6px; left: 6px;
@@ -541,14 +510,6 @@
     </div>
 
     <button id="settings-btn" title="Settings" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">⚙</button>
-    <div class="nsfw-wrap">
-      <span class="nsfw-label">blur</span>
-      <label class="toggle">
-        <input type="checkbox" id="blur-toggle">
-        <span class="toggle-track"></span>
-        <span class="toggle-thumb"></span>
-      </label>
-    </div>
   </div>
 
   <div class="tag-pills" id="tag-pills"></div>
@@ -879,7 +840,6 @@ let tags      = [];
 let page      = 1;
 let loading   = false;
 let exhausted = false;
-let blurNSFW  = false;
 let ratingVal = '';
 let civitaiCursor = null;
 
@@ -901,7 +861,6 @@ const tagPills         = document.getElementById('tag-pills');
 const orderSel         = document.getElementById('order-select');
 const ageSel           = document.getElementById('age-select');
 const ratingGroup      = document.getElementById('rating-group');
-const blurToggle       = document.getElementById('blur-toggle');
 const sentinel         = document.getElementById('sentinel');
 const lightbox         = document.getElementById('lightbox');
 const lbOpen           = document.getElementById('lb-open');
@@ -968,12 +927,11 @@ ratingGroup.addEventListener('click', e => {
 });
 
 // ── Blur ──────────────────────────────────────────────────────────────────────
-blurToggle.addEventListener('change', () => {
-  blurNSFW = blurToggle.checked;
+// blur removed
+if (false) {
   document.querySelectorAll('.post-card').forEach(card => applyBlur(card, card.dataset.rating));
 });
 function applyBlur(card, rating) {
-  card.classList.toggle('blurred', blurNSFW && ['s','q','e'].includes(rating));
 }
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
