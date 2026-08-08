@@ -619,6 +619,8 @@ const CFG = {
   civkey:  localStorage.getItem('cfg_civ_key')  || '',
   ailogin: localStorage.getItem('cfg_ai_login') || '',
   aikey:   localStorage.getItem('cfg_ai_key')   || '',
+  danblogin: localStorage.getItem('cfg_danb_login') || '',
+  danbkey:   localStorage.getItem('cfg_danb_key')   || '',
 };
 
 // ── CORS Proxy ────────────────────────────────────────────────────────────────
@@ -637,15 +639,15 @@ const SITES = {
       if (order)  parts.push(order);
       if (age)    parts.push(age);
       if (rating) parts.push(rating);
-      // Danbooru API is open CORS — direct fetch avoids worker getting 403'd
-      return `https://danbooru.donmai.us/posts.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20`;
+      const creds = CFG.danblogin && CFG.danbkey ? `&login=${encodeURIComponent(CFG.danblogin)}&api_key=${encodeURIComponent(CFG.danbkey)}` : '';
+      return `https://danbooru.donmai.us/posts.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20${creds}`;
     },
     parsePosts(data) {
       return (Array.isArray(data) ? data : []).map(post => ({
         id: post.id, file_ext: post.file_ext || '', rating: post.rating || 'g',
-        // preview_file_url is on danbooru.donmai.us (proxy-friendly); large/file_url are on cdn.donmai.us (blocks proxies)
-        thumb: post.preview_file_url ? p(post.preview_file_url) : null,
-        full:  post.large_file_url   ? p(post.large_file_url)   : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
+        // cdn.donmai.us requires auth — append creds so CDN allows the request, load directly (no proxy)
+        thumb: post.preview_file_url ? post.preview_file_url + (CFG.danblogin && CFG.danbkey ? `?login=${encodeURIComponent(CFG.danblogin)}&api_key=${encodeURIComponent(CFG.danbkey)}` : '') : null,
+        full:  (post.large_file_url || post.file_url || post.preview_file_url || '') + (CFG.danblogin && CFG.danbkey ? `?login=${encodeURIComponent(CFG.danblogin)}&api_key=${encodeURIComponent(CFG.danbkey)}` : '') || null,
         tags: [
           ...(post.tag_string_artist    || '').split(' '),
           ...(post.tag_string_character || '').split(' '),
@@ -655,7 +657,8 @@ const SITES = {
       }));
     },
     buildAcUrl(q) {
-      return `https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`;
+      const creds = CFG.danblogin && CFG.danbkey ? `&login=${encodeURIComponent(CFG.danblogin)}&api_key=${encodeURIComponent(CFG.danbkey)}` : '';
+      return `https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8${creds}`;
     },
     parseAc(data) {
       return (Array.isArray(data) ? data : []).map(t => ({ name: t.name, count: t.post_count, category: t.category }));
@@ -1244,6 +1247,8 @@ function openSettings() {
   document.getElementById('cfg-civ-key').value  = CFG.civkey;
   document.getElementById('cfg-ai-login').value = CFG.ailogin;
   document.getElementById('cfg-ai-key').value   = CFG.aikey;
+  document.getElementById('cfg-danb-login').value = CFG.danblogin;
+  document.getElementById('cfg-danb-key').value   = CFG.danbkey;
   getSettingsOverlay().style.display = 'block';
   getSettingsModal().style.display   = 'block';
 }
@@ -1265,6 +1270,8 @@ window.addEventListener('load', () => {
   localStorage.setItem('cfg_civ_key',  document.getElementById('cfg-civ-key').value.trim());
   localStorage.setItem('cfg_ai_login', document.getElementById('cfg-ai-login').value.trim());
   localStorage.setItem('cfg_ai_key',   document.getElementById('cfg-ai-key').value.trim());
+  localStorage.setItem('cfg_danb_login', document.getElementById('cfg-danb-login').value.trim());
+  localStorage.setItem('cfg_danb_key',   document.getElementById('cfg-danb-key').value.trim());
   getSettingsSaved().style.display = 'block';
   setTimeout(() => { closeSettings(); location.reload(); }, 1200);
   });
@@ -1292,6 +1299,16 @@ if (!CFG.proxy) {
     <div>
       <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;letter-spacing:.05em;">CORS PROXY URL</label>
       <input id="cfg-proxy" type="text" placeholder="https://your-worker.workers.dev/" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);">
+    <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">DANBOORU</p>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">Login</label>
+      <input id="cfg-danb-login" type="text" placeholder="your danbooru username" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">API Key</label>
+      <input id="cfg-danb-key" type="text" placeholder="your danbooru api key" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
     </div>
     <hr style="border:none;border-top:1px solid var(--border);">
     <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">RULE34</p>
