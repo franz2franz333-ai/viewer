@@ -1303,12 +1303,21 @@ async function fetchMultiSite() {
     return;
   }
 
+  // Ensure latestId for rule34/gelbooru if age filter is active
+  const ageVal = ageSel.value;
+  if (ageVal) {
+    await Promise.allSettled([
+      activeSites.includes('rule34')   ? ensureRule34LatestId()   : Promise.resolve(),
+      activeSites.includes('gelbooru') ? ensureGelbooruLatestId() : Promise.resolve(),
+    ]);
+  }
+
   // Fetch all active sites in parallel
   const results = await Promise.allSettled(activeSites.map(async key => {
     const site = SITES[key];
     const pg = multiPages[key] || 1;
-    // Rule34/gelbooru age filter needs latestId — skip age filter in multi mode for simplicity
-    const url = site.buildPostsUrl(tags, orderSel.value, '', ratingVal, pg, null, null);
+    const latestId = key === 'gelbooru' ? gelbooruLatestId : key === 'rule34' ? rule34LatestId : null;
+    const url = site.buildPostsUrl(tags, orderSel.value, ageVal, ratingVal, pg, latestId, null);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`${key}: HTTP ${res.status}`);
     const raw = await res.json();
