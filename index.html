@@ -874,30 +874,27 @@ const SITES = {
       // Will be called with token injected in fetchPosts override
       return null; // URL built dynamically in fetchPosts
     },
-    async buildUrl(tags, order, age, _rating, page, cursor) {
+    async buildUrl(tags, order, age, _rating, page) {
       const token = await this.getToken();
-      const authPart = token ? `&access_token=${encodeURIComponent(token)}` : '';
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const offset = (page - 1) * 20;
       const sortMap = { '': 'newest', 'order:score': 'popular-all-time', 'order:favcount': 'popular-all-time', 'order:rank': 'trending', 'order:random': 'newest' };
       const timeRange = { '': '', 'age:..1d': '1day', 'age:..3d': '3days', 'age:..1w': '1week', 'age:..1mo': '1month' };
       const sort = sortMap[order] || 'newest';
       const tr = timeRange[age] || '';
 
+      let url;
       if (tags.length) {
-        // Tag/search browse
         const q = tags.join(' ');
-        const popularSort = sort.startsWith('popular') ? `&timerange=${tr || '1month'}` : '';
-        return p(`https://www.deviantart.com/api/v1/oauth2/browse/tags?tag=${encodeURIComponent(q)}&offset=${offset}&limit=20&with_session=false${authPart}`);
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/tags?tag=${encodeURIComponent(q)}&offset=${offset}&limit=20&with_session=false`);
+      } else if (sort === 'trending') {
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/hot?offset=${offset}&limit=20&with_session=false`);
+      } else if (sort.startsWith('popular')) {
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/popular?timerange=${tr || '1month'}&offset=${offset}&limit=20&with_session=false`);
       } else {
-        // General popular/newest browse
-        if (sort === 'trending') {
-          return p(`https://www.deviantart.com/api/v1/oauth2/browse/hot?offset=${offset}&limit=20&with_session=false${authPart}`);
-        } else if (sort.startsWith('popular')) {
-          return p(`https://www.deviantart.com/api/v1/oauth2/browse/popular?timerange=${tr || '1month'}&offset=${offset}&limit=20&with_session=false${authPart}`);
-        } else {
-          return p(`https://www.deviantart.com/api/v1/oauth2/browse/newest?offset=${offset}&limit=20&with_session=false${authPart}`);
-        }
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/newest?offset=${offset}&limit=20&with_session=false`);
       }
+      return { url, headers };
     },
     parsePosts(data) {
       const items = Array.isArray(data?.results) ? data.results : [];
@@ -1086,13 +1083,15 @@ let prefetchCache = null; // { url, promise, posts }
 async function prefetchNextPage() {
   if (exhausted || loading) return;
   const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
-  const nextUrl = currentSite.buildUrl
+  const nextResult = currentSite.buildUrl
     ? await currentSite.buildUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, civitaiCursor)
     : currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, latestId, civitaiCursor);
+  const nextUrl     = nextResult?.url ?? nextResult;
+  const nextHeaders = nextResult?.headers ?? {};
   if (prefetchCache?.url === nextUrl) return; // already prefetching this
   prefetchCache = { url: nextUrl, posts: null };
   try {
-    const res = await fetch(nextUrl);
+    const res = await fetch(nextUrl, Object.keys(nextHeaders).length ? { headers: nextHeaders } : undefined);
     if (!res.ok) return;
     const raw = await res.json();
     prefetchCache.posts = currentSite.parsePosts(raw);
@@ -1130,9 +1129,11 @@ async function fetchPosts() {
   }
 
   const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
-  const url = currentSite.buildUrl
+  const urlResult = currentSite.buildUrl
     ? await currentSite.buildUrl(tags, orderSel.value, ageSel.value, ratingVal, page, civitaiCursor)
     : currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page, latestId, civitaiCursor);
+  const url     = urlResult?.url ?? urlResult;
+  const fetchHeaders = urlResult?.headers ?? {};
   try {
     let posts;
     // Use prefetch cache if it matches current page URL
@@ -1141,7 +1142,7 @@ async function fetchPosts() {
       prefetchCache = null;
     } else {
       prefetchCache = null;
-      const res = await fetch(url);
+      const res = await fetch(url, Object.keys(fetchHeaders).length ? { headers: fetchHeaders } : undefined);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const raw = await res.json();
       if (raw.metadata?.nextCursor !== undefined) civitaiCursor = raw.metadata.nextCursor || null;
