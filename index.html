@@ -610,7 +610,7 @@
 
 <script>
 // ── CORS Proxy ────────────────────────────────────────────────────────────────
-const p = url => PROXY + url; // wrap any URL through proxy
+const p = url => CFG.proxy ? CFG.proxy + url : url;
 
 // ── Global Rule34 ID State tracking ──────────────────────────────────────────
 let rule34LatestId = null;
@@ -1216,11 +1216,10 @@ function fmtCount(n) {
 
 // ── Settings panel ────────────────────────────────────────────────────────────
 const settingsBtn     = document.getElementById('settings-btn');
-const settingsOverlay = document.getElementById('settings-overlay');
-const settingsModal   = document.getElementById('settings-modal');
-const settingsClose   = document.getElementById('settings-close');
-const settingsSave    = document.getElementById('settings-save');
-const settingsSaved   = document.getElementById('settings-saved');
+// Settings modal elements resolved lazily (modal is at end of body)
+const getSettingsOverlay = () => document.getElementById('settings-overlay');
+const getSettingsModal   = () => document.getElementById('settings-modal');
+const getSettingsSaved   = () => document.getElementById('settings-saved');
 
 function openSettings() {
   document.getElementById('cfg-proxy').value    = CFG.proxy;
@@ -1231,18 +1230,18 @@ function openSettings() {
   document.getElementById('cfg-civ-key').value  = CFG.civkey;
   document.getElementById('cfg-ai-login').value = CFG.ailogin;
   document.getElementById('cfg-ai-key').value   = CFG.aikey;
-  settingsOverlay.style.display = 'block';
-  settingsModal.style.display   = 'block';
+  getSettingsOverlay().style.display = 'block';
+  getSettingsModal().style.display   = 'block';
 }
 function closeSettings() {
-  settingsOverlay.style.display = 'none';
-  settingsModal.style.display   = 'none';
-  settingsSaved.style.display   = 'none';
+  getSettingsOverlay().style.display = 'none';
+  getSettingsModal().style.display   = 'none';
+  getSettingsSaved().style.display   = 'none';
 }
 settingsBtn.addEventListener('click', openSettings);
-settingsClose.addEventListener('click', closeSettings);
-settingsOverlay.addEventListener('click', closeSettings);
-settingsSave.addEventListener('click', () => {
+document.getElementById('settings-close').addEventListener('click', closeSettings);
+getSettingsOverlay().addEventListener('click', closeSettings);
+document.getElementById('settings-save').addEventListener('click', () => {
   localStorage.setItem('cfg_proxy',    document.getElementById('cfg-proxy').value.trim());
   localStorage.setItem('cfg_r34_uid',  document.getElementById('cfg-r34-uid').value.trim());
   localStorage.setItem('cfg_r34_key',  document.getElementById('cfg-r34-key').value.trim());
@@ -1251,7 +1250,7 @@ settingsSave.addEventListener('click', () => {
   localStorage.setItem('cfg_civ_key',  document.getElementById('cfg-civ-key').value.trim());
   localStorage.setItem('cfg_ai_login', document.getElementById('cfg-ai-login').value.trim());
   localStorage.setItem('cfg_ai_key',   document.getElementById('cfg-ai-key').value.trim());
-  settingsSaved.style.display = 'block';
+  getSettingsSaved().style.display = 'block';
   setTimeout(() => { closeSettings(); location.reload(); }, 1200);
 });
 
