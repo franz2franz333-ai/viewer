@@ -987,6 +987,22 @@ async function ensureGelbooruLatestId() {
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
+let prefetchCache = null; // { url, promise, posts }
+
+async function prefetchNextPage() {
+  if (exhausted || loading) return;
+  const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
+  const nextUrl = currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, latestId, civitaiCursor);
+  if (prefetchCache?.url === nextUrl) return; // already prefetching this
+  prefetchCache = { url: nextUrl, posts: null };
+  try {
+    const res = await fetch(nextUrl);
+    if (!res.ok) return;
+    const raw = await res.json();
+    prefetchCache.posts = currentSite.parsePosts(raw);
+  } catch { prefetchCache = null; }
+}
+
 async function fetchPosts() {
   if (loading || exhausted) return;
   loading = true;
@@ -1019,17 +1035,27 @@ async function fetchPosts() {
   const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
   const url = currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page, latestId, civitaiCursor);
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const raw   = await res.json();
-    if (raw.metadata?.nextCursor !== undefined) civitaiCursor = raw.metadata.nextCursor || null;
-    const posts = currentSite.parsePosts(raw);
+    let posts;
+    // Use prefetch cache if it matches current page URL
+    if (prefetchCache?.url === url && prefetchCache.posts !== null) {
+      posts = prefetchCache.posts;
+      prefetchCache = null;
+    } else {
+      prefetchCache = null;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const raw = await res.json();
+      if (raw.metadata?.nextCursor !== undefined) civitaiCursor = raw.metadata.nextCursor || null;
+      posts = currentSite.parsePosts(raw);
+    }
     if (!posts.length) {
       exhausted = true;
       if (page === 1) emptyMsg.style.display = 'block';
     } else {
       posts.forEach(renderPost);
       page++;
+      // Kick off prefetch for the next page in the background
+      setTimeout(prefetchNextPage, 300);
     }
   } catch (err) {
     errorText.textContent = `Error: ${err.message}`;
@@ -1109,7 +1135,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbo
 
 // ── Reset / Infinite scroll ───────────────────────────────────────────────────
 function reset() {
-  page = 1; exhausted = false; civitaiCursor = null;
+  page = 1; exhausted = false; civitaiCursor = null; prefetchCache = null;
   grid.innerHTML = '';
   emptyMsg.style.display = 'none';
   errorMsg.style.display = 'none';
