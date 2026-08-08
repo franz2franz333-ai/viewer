@@ -1065,7 +1065,6 @@ function renderPost(post) {
       <span class="rating-badge ${rCls[rating]||'rb-g'}">${rLbl[rating]||'?'}</span>`;
   }
 
-  applyBlur(card, rating);
   card.addEventListener('click', () => openLightbox(post, isVideo));
   grid.appendChild(card);
 }
