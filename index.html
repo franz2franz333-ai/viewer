@@ -807,10 +807,12 @@ const SITES = {
       const sort          = sortMap[order]  ?? 'Newest';
       const period        = periodMap[age]  ?? 'AllTime';
       const browsingLevel = nsfwMap[rating] ?? 31;
+      // CivitAI has open CORS — fetch directly, token injected by worker causes 503
       let url = `https://civitai.com/api/v1/images?limit=20&sort=${encodeURIComponent(sort)}&period=${period}&browsingLevel=${browsingLevel}`;
       if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
       if (tags.length) url += `&username=${encodeURIComponent(tags[0])}`;
-      return p(url);
+      if (CFG.civkey) url += `&token=${encodeURIComponent(CFG.civkey)}`;
+      return url;
     },
     parsePosts(data) {
       const items = Array.isArray(data?.items) ? data.items : [];
@@ -826,7 +828,8 @@ const SITES = {
       }));
     },
     buildAcUrl(q) {
-      return p(`https://civitai.com/api/v1/creators?limit=8&query=${encodeURIComponent(q)}`);
+      const key = CFG.civkey ? `&token=${encodeURIComponent(CFG.civkey)}` : '';
+      return `https://civitai.com/api/v1/creators?limit=8&query=${encodeURIComponent(q)}${key}`;
     },
     parseAc(data) {
       return (Array.isArray(data?.items) ? data.items : []).map(u => ({ name: u.username, count: u.uploadCount || 0, category: 0 }));
@@ -877,7 +880,7 @@ siteMenuEl.addEventListener('click', e => {
   const key = item.dataset.site;
   if (!SITES[key]) return;
   currentSite = SITES[key];
-  siteLabelEl.textContent = currentSite.label;
+  siteLabelEl.textContent = currentSite.label[0].toUpperCase();
   
   if (key === 'rule34') {
     ageFilterLabel.textContent = "id filtering";
