@@ -477,6 +477,10 @@
         <span class="site-btn-wrap"><span id="site-label">D</span><span class="site-caret">▾</span></span>
       </button>
       <div class="site-menu" id="site-menu">
+        <button class="site-menu-item" data-site="all">
+          <span class="site-menu-name">all sites</span>
+          <span class="site-menu-url">round-robin</span>
+        </button>
         <button class="site-menu-item active" data-site="danbooru">
           <span class="site-menu-name">danbooru</span>
           <span class="site-menu-url">danbooru.donmai.us</span>
@@ -878,11 +882,15 @@ siteMenuEl.addEventListener('click', e => {
   const item = e.target.closest('.site-menu-item');
   if (!item) return;
   const key = item.dataset.site;
-  if (!SITES[key]) return;
-  currentSite = SITES[key];
-  siteLabelEl.textContent = currentSite.label[0].toUpperCase();
+  if (key !== 'all' && !SITES[key]) return;
+  siteLabelEl.textContent = key === 'all' ? '★' : SITES[key].label[0].toUpperCase();
   
-  if (key === 'rule34') {
+  if (key === 'all') {
+    currentSite = 'all';
+    ageFilterLabel.textContent = "age";
+    ratingFilterGroup.style.display = 'flex';
+    tagInput.placeholder = 'add tags…';
+  } else if (key === 'rule34') {
     ageFilterLabel.textContent = "id filtering";
     ratingFilterGroup.style.display = 'none';
     ratingVal = '';
@@ -905,6 +913,7 @@ siteMenuEl.addEventListener('click', e => {
     tagInput.placeholder = 'add tags…';
   }
   
+  if (key !== 'all') currentSite = SITES[key];
   siteMenuEl.querySelectorAll('.site-menu-item').forEach(el => el.classList.toggle('active', el.dataset.site === key));
   siteMenuEl.classList.remove('open');
   reset();
@@ -1004,6 +1013,7 @@ async function prefetchNextPage() {
 }
 
 async function fetchPosts() {
+  if (currentSite === 'all') return fetchMultiSite();
   if (loading || exhausted) return;
   loading = true;
   loader.style.display = 'block';
@@ -1135,7 +1145,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbo
 
 // ── Reset / Infinite scroll ───────────────────────────────────────────────────
 function reset() {
-  page = 1; exhausted = false; civitaiCursor = null; prefetchCache = null;
+  page = 1; exhausted = false; civitaiCursor = null; prefetchCache = null; resetMulti();
   grid.innerHTML = '';
   emptyMsg.style.display = 'none';
   errorMsg.style.display = 'none';
@@ -1263,6 +1273,86 @@ window.addEventListener('load', () => {
   setTimeout(() => { closeSettings(); location.reload(); }, 1200);
   });
 });
+
+
+// ── Multi-site (all) ──────────────────────────────────────────────────────────
+const MULTI_SITES = ['danbooru', 'yandere', 'gelbooru', 'rule34'];
+let multiPages = {}; // per-site page counters
+let multiExhausted = {}; // per-site exhausted flags
+let multiCursor = null; // not used but kept for consistency
+
+function resetMulti() {
+  multiPages = {};
+  multiExhausted = {};
+  MULTI_SITES.forEach(k => { multiPages[k] = 1; multiExhausted[k] = false; });
+}
+
+async function fetchMultiSite() {
+  if (loading || exhausted) return;
+  loading = true;
+  loader.style.display = 'block';
+  emptyMsg.style.display = 'none';
+  errorMsg.style.display = 'none';
+
+  // Pick sites that aren't exhausted yet
+  const activeSites = MULTI_SITES.filter(k => !multiExhausted[k]);
+  if (!activeSites.length) {
+    exhausted = true;
+    loading = false;
+    loader.style.display = 'none';
+    return;
+  }
+
+  // Fetch all active sites in parallel
+  const results = await Promise.allSettled(activeSites.map(async key => {
+    const site = SITES[key];
+    const pg = multiPages[key] || 1;
+    // Rule34/gelbooru age filter needs latestId — skip age filter in multi mode for simplicity
+    const url = site.buildPostsUrl(tags, orderSel.value, '', ratingVal, pg, null, null);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${key}: HTTP ${res.status}`);
+    const raw = await res.json();
+    const posts = site.parsePosts(raw);
+    return { key, posts };
+  }));
+
+  // Process results
+  const perSite = {};
+  results.forEach((r, i) => {
+    const key = activeSites[i];
+    if (r.status === 'fulfilled' && r.value.posts.length) {
+      perSite[key] = r.value.posts;
+      multiPages[key] = (multiPages[key] || 1) + 1;
+    } else {
+      multiExhausted[key] = true;
+    }
+  });
+
+  // Round-robin interleave: take posts from each site one at a time
+  const siteKeys = Object.keys(perSite);
+  if (!siteKeys.length) {
+    exhausted = true;
+    if (Object.values(multiPages).every(p => p === 1)) emptyMsg.style.display = 'block';
+    loading = false;
+    loader.style.display = 'none';
+    return;
+  }
+
+  const maxLen = Math.max(...siteKeys.map(k => perSite[k].length));
+  for (let i = 0; i < maxLen; i++) {
+    for (const key of siteKeys) {
+      if (perSite[key][i]) renderPost(perSite[key][i]);
+    }
+  }
+
+  loading = false;
+  loader.style.display = 'none';
+
+  // Prefetch next round in background
+  setTimeout(() => {
+    if (!exhausted) prefetchNextPage();
+  }, 300);
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 if (!CFG.proxy) {
