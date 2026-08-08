@@ -505,6 +505,10 @@
           <span class="site-menu-name">civitai</span>
           <span class="site-menu-url">civitai.com</span>
         </button>
+        <button class="site-menu-item" data-site="deviantart">
+          <span class="site-menu-name">deviantart</span>
+          <span class="site-menu-url">deviantart.com</span>
+        </button>
       </div>
     </div>
     <div class="search-wrap">
@@ -594,6 +598,8 @@ const CFG = {
   aikey:   localStorage.getItem('cfg_ai_key')   || '',
   danblogin: localStorage.getItem('cfg_danb_login') || '',
   danbkey:   localStorage.getItem('cfg_danb_key')   || '',
+  dakey:     localStorage.getItem('cfg_da_key')     || '',
+  dasecret:  localStorage.getItem('cfg_da_secret')  || '',
 };
 
 // ── CORS Proxy ────────────────────────────────────────────────────────────────
@@ -839,6 +845,70 @@ const SITES = {
       return (Array.isArray(data?.items) ? data.items : []).map(u => ({ name: u.username, count: u.uploadCount || 0, category: 0 }));
     },
   },
+  deviantart: {
+    label: 'deviantart',
+    _token: null,
+    _tokenExpiry: 0,
+    async getToken() {
+      if (this._token && Date.now() < this._tokenExpiry) return this._token;
+      if (!CFG.dakey || !CFG.dasecret) return null;
+      try {
+        const res = await fetch(p(`https://www.deviantart.com/oauth2/token?grant_type=client_credentials&client_id=${encodeURIComponent(CFG.dakey)}&client_secret=${encodeURIComponent(CFG.dasecret)}`), { method: 'POST' });
+        const data = await res.json();
+        this._token = data.access_token || null;
+        this._tokenExpiry = Date.now() + ((data.expires_in || 3600) - 60) * 1000;
+        return this._token;
+      } catch { return null; }
+    },
+    buildPostsUrl(tags, order, age, rating, page, _latestId, cursor) {
+      // Will be called with token injected in fetchPosts override
+      return null; // URL built dynamically in fetchPosts
+    },
+    async buildUrl(tags, order, age, _rating, page, cursor) {
+      const token = await this.getToken();
+      const authPart = token ? `&access_token=${encodeURIComponent(token)}` : '';
+      const offset = (page - 1) * 20;
+      const sortMap = { '': 'newest', 'order:score': 'popular-all-time', 'order:favcount': 'popular-all-time', 'order:rank': 'trending', 'order:random': 'newest' };
+      const timeRange = { '': '', 'age:..1d': '1day', 'age:..3d': '3days', 'age:..1w': '1week', 'age:..1mo': '1month' };
+      const sort = sortMap[order] || 'newest';
+      const tr = timeRange[age] || '';
+
+      if (tags.length) {
+        // Tag/search browse
+        const q = tags.join(' ');
+        const popularSort = sort.startsWith('popular') ? `&timerange=${tr || '1month'}` : '';
+        return p(`https://www.deviantart.com/api/v1/oauth2/browse/tags?tag=${encodeURIComponent(q)}&offset=${offset}&limit=20&with_session=false${authPart}`);
+      } else {
+        // General popular/newest browse
+        if (sort === 'trending') {
+          return p(`https://www.deviantart.com/api/v1/oauth2/browse/hot?offset=${offset}&limit=20&with_session=false${authPart}`);
+        } else if (sort.startsWith('popular')) {
+          return p(`https://www.deviantart.com/api/v1/oauth2/browse/popular?timerange=${tr || '1month'}&offset=${offset}&limit=20&with_session=false${authPart}`);
+        } else {
+          return p(`https://www.deviantart.com/api/v1/oauth2/browse/newest?offset=${offset}&limit=20&with_session=false${authPart}`);
+        }
+      }
+    },
+    parsePosts(data) {
+      const items = Array.isArray(data?.results) ? data.results : [];
+      return items.filter(d => d.content || d.thumbs?.length).map(d => ({
+        id: d.deviationid,
+        file_ext: (d.content?.src || '').split('.').pop().split('?')[0].toLowerCase() || 'jpg',
+        rating: d.is_mature ? 'e' : 'g',
+        thumb: d.thumbs?.length ? d.thumbs[d.thumbs.length - 1].src : d.content?.src || null,
+        full:  d.content?.src || (d.thumbs?.length ? d.thumbs[d.thumbs.length - 1].src : null),
+        tags:  d.tags ? d.tags.map(t => t.tag_name) : [],
+        pageUrl: d.url || `https://www.deviantart.com/deviation/${d.deviationid}`,
+      }));
+    },
+    buildAcUrl(q) {
+      // DeviantArt doesn't have a simple unauthenticated tag autocomplete; fall back to Danbooru AC
+      return `https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`;
+    },
+    parseAc(data) {
+      return (Array.isArray(data) ? data : []).map(t => ({ name: t.name, count: t.post_count, category: t.category }));
+    },
+  },
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -907,6 +977,11 @@ siteMenuEl.addEventListener('click', e => {
     ratingFilterGroup.style.display = 'flex';
     civitaiCursor = null;
     tagInput.placeholder = 'filter by username…';
+  } else if (key === 'deviantart') {
+    ageFilterLabel.textContent = "period";
+    ratingFilterGroup.style.display = 'none';
+    ratingVal = '';
+    tagInput.placeholder = 'search tags…';
   } else {
     ageFilterLabel.textContent = "age";
     ratingFilterGroup.style.display = 'flex';
@@ -1001,7 +1076,9 @@ let prefetchCache = null; // { url, promise, posts }
 async function prefetchNextPage() {
   if (exhausted || loading) return;
   const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
-  const nextUrl = currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, latestId, civitaiCursor);
+  const nextUrl = currentSite.buildUrl
+    ? await currentSite.buildUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, civitaiCursor)
+    : currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, latestId, civitaiCursor);
   if (prefetchCache?.url === nextUrl) return; // already prefetching this
   prefetchCache = { url: nextUrl, posts: null };
   try {
@@ -1043,7 +1120,9 @@ async function fetchPosts() {
   }
 
   const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
-  const url = currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page, latestId, civitaiCursor);
+  const url = currentSite.buildUrl
+    ? await currentSite.buildUrl(tags, orderSel.value, ageSel.value, ratingVal, page, civitaiCursor)
+    : currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page, latestId, civitaiCursor);
   try {
     let posts;
     // Use prefetch cache if it matches current page URL
@@ -1246,6 +1325,8 @@ function openSettings() {
   document.getElementById('cfg-ai-key').value   = CFG.aikey;
   document.getElementById('cfg-danb-login').value = CFG.danblogin;
   document.getElementById('cfg-danb-key').value   = CFG.danbkey;
+  document.getElementById('cfg-da-key').value     = CFG.dakey;
+  document.getElementById('cfg-da-secret').value  = CFG.dasecret;
   getSettingsOverlay().style.display = 'block';
   getSettingsModal().style.display   = 'block';
 }
@@ -1269,6 +1350,8 @@ window.addEventListener('load', () => {
   localStorage.setItem('cfg_ai_key',   document.getElementById('cfg-ai-key').value.trim());
   localStorage.setItem('cfg_danb_login', document.getElementById('cfg-danb-login').value.trim());
   localStorage.setItem('cfg_danb_key',   document.getElementById('cfg-danb-key').value.trim());
+  localStorage.setItem('cfg_da_key',     document.getElementById('cfg-da-key').value.trim());
+  localStorage.setItem('cfg_da_secret',  document.getElementById('cfg-da-secret').value.trim());
   getSettingsSaved().style.display = 'block';
   setTimeout(() => { closeSettings(); location.reload(); }, 1200);
   });
@@ -1421,6 +1504,16 @@ if (!CFG.proxy) {
     <div>
       <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">API Key</label>
       <input id="cfg-civ-key" type="text" placeholder="your civitai api key" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);">
+    <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">DEVIANTART</p>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">Client ID</label>
+      <input id="cfg-da-key" type="text" placeholder="your deviantart client id" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
+    </div>
+    <div>
+      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">Client Secret</label>
+      <input id="cfg-da-secret" type="text" placeholder="your deviantart client secret" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
     </div>
     <hr style="border:none;border-top:1px solid var(--border);">
     <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">AIBOORU</p>
