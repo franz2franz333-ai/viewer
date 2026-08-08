@@ -650,7 +650,7 @@ const SITES = {
       }
       
       // Kept unproxied connection configuration matching your instruction
-      return `https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&tags=${encodeURIComponent(parts.join(' '))}&pid=${page - 1}&limit=20&user_id=${encodeURIComponent(CFG.r34uid)}&api_key=${encodeURIComponent(CFG.r34key)}`;
+      return p(`https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&tags=${encodeURIComponent(parts.join(' '))}&pid=${page - 1}&limit=20&user_id=${encodeURIComponent(CFG.r34uid)}&api_key=${encodeURIComponent(CFG.r34key)}`);
     },
     parsePosts(data) {
       const posts = Array.isArray(data) ? data : [];
@@ -659,8 +659,8 @@ const SITES = {
         id: post.id,
         file_ext: (post.file_url || '').split('.').pop().toLowerCase(),
         rating: rmap[post.rating] || (post.rating || 'e')[0],
-        thumb: post.file_url ? post.file_url : post.sample_url ? post.sample_url : post.preview_url ? post.preview_url : null,
-        full:  post.file_url ? post.file_url : post.sample_url ? post.sample_url : post.preview_url ? post.preview_url : null,
+        thumb: post.file_url ? p(post.file_url) : post.sample_url ? p(post.sample_url) : post.preview_url ? p(post.preview_url) : null,
+        full:  post.file_url ? p(post.file_url) : post.sample_url ? p(post.sample_url) : post.preview_url ? p(post.preview_url) : null,
         tags: (post.tags || '').split(' ').filter(Boolean),
         pageUrl: `https://rule34.xxx/index.php?page=post&s=view&id=${post.id}`,
       }));
@@ -694,21 +694,21 @@ const SITES = {
         const rmap = { 'rating:g': 'rating:s', 'rating:s': 'rating:s', 'rating:q': 'rating:q', 'rating:e': 'rating:e' };
         parts.push(rmap[rating] || rating);
       }
-      return `https://yande.re/post.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20`;
+      return p(`https://yande.re/post.json?tags=${encodeURIComponent(parts.join(' '))}&page=${page}&limit=20`);
     },
     parsePosts(data) {
       return (Array.isArray(data) ? data : []).map(post => ({
         id: post.id,
         file_ext: post.file_ext || '',
         rating: post.rating === 's' ? 'g' : post.rating === 'q' ? 'q' : post.rating === 'e' ? 'e' : 'g',
-        thumb: post.sample_url ? post.sample_url : post.jpeg_url ? post.jpeg_url : post.file_url ? post.file_url : null,
-        full:  post.jpeg_url ? post.jpeg_url : post.file_url ? post.file_url : null,
+        thumb: post.sample_url ? p(post.sample_url) : post.jpeg_url ? p(post.jpeg_url) : post.file_url ? p(post.file_url) : null,
+        full:  post.jpeg_url ? p(post.jpeg_url) : post.file_url ? p(post.file_url) : null,
         tags: (post.tags || '').split(' ').filter(Boolean),
         pageUrl: `https://yande.re/post/show/${post.id}`,
       }));
     },
     buildAcUrl(q) {
-      return `https://yande.re/tag.json?name=${encodeURIComponent(q)}*&order=count&limit=8`;
+      return p(`https://yande.re/tag.json?name=${encodeURIComponent(q)}*&order=count&limit=8`);
     },
     parseAc(data) {
       return (Array.isArray(data) ? data : []).map(t => ({ name: t.name, count: t.count, category: t.type }));
@@ -729,7 +729,7 @@ const SITES = {
         if (rmap[rating]) parts.push(rmap[rating]);
       }
       const pid = page - 1;
-      return `https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&tags=${encodeURIComponent(parts.join(' '))}&pid=${pid}&limit=20`;
+      return p(`https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&tags=${encodeURIComponent(parts.join(' '))}&pid=${pid}&limit=20`);
     },
     parsePosts(data) {
       const posts = Array.isArray(data?.post) ? data.post : Array.isArray(data) ? data : [];
@@ -738,14 +738,14 @@ const SITES = {
         id: post.id,
         file_ext: (post.file_url || '').split('.').pop().toLowerCase(),
         rating: rmap[post.rating] || (post.rating || 'g')[0],
-        thumb: post.preview_url ? post.preview_url : post.sample_url ? post.sample_url : post.file_url ? post.file_url : null,
-        full:  post.file_url ? post.file_url : post.sample_url ? post.sample_url : null,
+        thumb: post.preview_url ? p(post.preview_url) : post.sample_url ? p(post.sample_url) : post.file_url ? p(post.file_url) : null,
+        full:  post.file_url ? p(post.file_url) : post.sample_url ? p(post.sample_url) : null,
         tags: (post.tags || '').split(' ').filter(Boolean),
         pageUrl: `https://gelbooru.com/index.php?page=post&s=view&id=${post.id}`,
       }));
     },
     buildAcUrl(q) {
-      return `https://gelbooru.com/index.php?page=dapi&s=tag&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&name_pattern=${encodeURIComponent(q)}%25&orderby=count&limit=8`;
+      return p(`https://gelbooru.com/index.php?page=dapi&s=tag&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&name_pattern=${encodeURIComponent(q)}%25&orderby=count&limit=8`);
     },
     parseAc(data) {
       const tags = Array.isArray(data?.tag) ? data.tag : Array.isArray(data) ? data : [];
@@ -767,8 +767,8 @@ const SITES = {
     parsePosts(data) {
       return (Array.isArray(data) ? data : []).map(post => ({
         id: post.id, file_ext: post.file_ext || '', rating: post.rating || 'g',
-        thumb: post.large_file_url ? post.large_file_url : post.file_url ? post.file_url : post.preview_file_url ? post.preview_file_url : null,
-        full:  post.large_file_url ? post.large_file_url : post.file_url ? post.file_url : post.preview_file_url ? post.preview_file_url : null,
+        thumb: post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
+        full:  post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
         tags: [...(post.tag_string_artist||'').split(' '), ...(post.tag_string_character||'').split(' '), ...(post.tag_string_general||'').split(' ')].filter(Boolean),
         pageUrl: `https://aibooru.online/posts/${post.id}`,
       }));
@@ -821,8 +821,8 @@ const SITES = {
         id: item.id,
         file_ext: item.type === 'video' ? 'mp4' : (item.url?.split('.').pop()?.split('?')[0]?.toLowerCase() || 'jpg'),
         rating: nsfwMap[item.nsfwLevel] || 'e',
-        thumb: item.url ? item.url + '/width=450' : null,
-        full:  item.url ? item.url : null,
+        thumb: item.url ? p(item.url + '/width=450') : null,
+        full:  item.url ? p(item.url) : null,
         tags: item.meta?.prompt ? item.meta.prompt.split(',').map(t => t.trim()).filter(Boolean).slice(0, 20) : [],
         pageUrl: `https://civitai.com/images/${item.id}`,
       }));
@@ -958,7 +958,7 @@ ageSel.addEventListener('change', reset);
 async function ensureRule34LatestId() {
   if (rule34LatestId) return true;
   try {
-    const checkUrl = `https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=1&user_id=${encodeURIComponent(CFG.r34uid)}&api_key=${encodeURIComponent(CFG.r34key)}`;
+    const checkUrl = p(`https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit=1&user_id=${encodeURIComponent(CFG.r34uid)}&api_key=${encodeURIComponent(CFG.r34key)}`);
     const res = await fetch(checkUrl);
     if (!res.ok) return false;
     const data = await res.json();
@@ -976,7 +976,7 @@ async function ensureRule34LatestId() {
 async function ensureGelbooruLatestId() {
   if (gelbooruLatestId) return true;
   try {
-    const checkUrl = `https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&limit=1`;
+    const checkUrl = p(`https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&api_key=${encodeURIComponent(CFG.gelkey)}&user_id=${encodeURIComponent(CFG.geluid)}&limit=1`);
     const res = await fetch(checkUrl);
     if (!res.ok) return false;
     const data = await res.json();
