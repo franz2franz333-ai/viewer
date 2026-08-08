@@ -646,7 +646,7 @@ const SITES = {
       return (Array.isArray(data) ? data : []).map(post => ({
         id: post.id, file_ext: post.file_ext || '', rating: post.rating || 'g',
         // cdn.donmai.us requires auth — append creds so CDN allows the request, load directly (no proxy)
-        thumb: post.preview_file_url ? post.preview_file_url + (CFG.danblogin && CFG.danbkey ? `?login=${encodeURIComponent(CFG.danblogin)}&api_key=${encodeURIComponent(CFG.danbkey)}` : '') : null,
+        thumb: (post.large_file_url || post.file_url || post.preview_file_url || null) ? (post.large_file_url || post.file_url || post.preview_file_url) + (CFG.danblogin && CFG.danbkey ? `?login=${encodeURIComponent(CFG.danblogin)}&api_key=${encodeURIComponent(CFG.danbkey)}` : '') : null,
         full:  (post.large_file_url || post.file_url || post.preview_file_url || '') + (CFG.danblogin && CFG.danbkey ? `?login=${encodeURIComponent(CFG.danblogin)}&api_key=${encodeURIComponent(CFG.danbkey)}` : '') || null,
         tags: [
           ...(post.tag_string_artist    || '').split(' '),
