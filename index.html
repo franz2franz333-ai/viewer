@@ -878,21 +878,20 @@ const SITES = {
       const token = await this.getToken();
       const auth = token ? `&access_token=${encodeURIComponent(token)}` : '';
       const offset = (page - 1) * 20;
-      const sortMap = { '': 'newest', 'order:score': 'popular-all-time', 'order:favcount': 'popular-all-time', 'order:rank': 'trending', 'order:random': 'newest' };
-      const timeRange = { '': '', 'age:..1d': '1day', 'age:..3d': '3days', 'age:..1w': '1week', 'age:..1mo': '1month' };
+      const sortMap = { '': 'newest', 'order:score': 'popular-24hr', 'order:favcount': 'popular-all-time', 'order:rank': 'popular-1week', 'order:random': 'newest' };
+      const timeRange = { '': 'popular-24hr', 'age:..1d': 'popular-24hr', 'age:..3d': 'popular-1week', 'age:..1w': 'popular-1week', 'age:..1mo': 'popular-1month' };
       const sort = sortMap[order] || 'newest';
-      const tr = timeRange[age] || '';
+      const tr = timeRange[age] || 'popular-24hr';
 
       let url;
       if (tags.length) {
         const q = tags.join(' ');
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/tags?tag=${encodeURIComponent(q)}&offset=${offset}&limit=20&with_session=false${auth}`);
-      } else if (sort === 'trending') {
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/hot?offset=${offset}&limit=20&with_session=false${auth}`);
-      } else if (sort.startsWith('popular')) {
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/popular?timerange=${tr || '1month'}&offset=${offset}&limit=20&with_session=false${auth}`);
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/tags?tag=${encodeURIComponent(q)}&offset=${offset}&limit=20&mature_content=false${auth}`);
+      } else if (sort === 'newest') {
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/newest?category_path=digitalart&offset=${offset}&limit=20&mature_content=false${auth}`);
       } else {
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/newest?offset=${offset}&limit=20&with_session=false${auth}`);
+        // popular-24hr / popular-1week / popular-1month / popular-all-time
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/popular?timerange=${tr}&category_path=digitalart&offset=${offset}&limit=20&mature_content=false${auth}`);
       }
       return { url, headers: {} };
     },
