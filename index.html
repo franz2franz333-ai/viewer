@@ -48,19 +48,19 @@
   .header-top {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     margin-bottom: 10px;
-    flex-wrap: wrap;
   }
 
-
   @media (max-width: 480px) {
-    .site-btn { font-size: 1rem; }
+    .logo { font-size: 1rem; }
     #tag-input { font-size: 0.72rem; }
+    .nsfw-label { display: none; }
   }
 
   .logo {
     font-size: 1.3rem;
+    flex-shrink: 1;
     font-weight: 800;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
     -webkit-background-clip: text;
@@ -70,7 +70,7 @@
   }
 
   .search-wrap {
-    flex: 1 1 140px;
+    flex: 1 1 80px;
     min-width: 0;
     position: relative;
   }
