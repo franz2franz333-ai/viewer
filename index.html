@@ -50,6 +50,13 @@
     align-items: center;
     gap: 10px;
     margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+
+  @media (max-width: 480px) {
+    .site-btn { font-size: 1rem; }
+    #tag-input { font-size: 0.72rem; }
   }
 
   .logo {
@@ -63,7 +70,8 @@
   }
 
   .search-wrap {
-    flex: 1;
+    flex: 1 1 140px;
+    min-width: 0;
     position: relative;
   }
 
