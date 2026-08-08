@@ -876,7 +876,7 @@ const SITES = {
     },
     async buildUrl(tags, order, age, _rating, page) {
       const token = await this.getToken();
-      const headers = token ? { 'X-DA-Token': token } : {};
+      const auth = token ? `&access_token=${encodeURIComponent(token)}` : '';
       const offset = (page - 1) * 20;
       const sortMap = { '': 'newest', 'order:score': 'popular-all-time', 'order:favcount': 'popular-all-time', 'order:rank': 'trending', 'order:random': 'newest' };
       const timeRange = { '': '', 'age:..1d': '1day', 'age:..3d': '3days', 'age:..1w': '1week', 'age:..1mo': '1month' };
@@ -886,15 +886,15 @@ const SITES = {
       let url;
       if (tags.length) {
         const q = tags.join(' ');
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/tags?tag=${encodeURIComponent(q)}&offset=${offset}&limit=20&with_session=false`);
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/tags?tag=${encodeURIComponent(q)}&offset=${offset}&limit=20&with_session=false${auth}`);
       } else if (sort === 'trending') {
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/hot?offset=${offset}&limit=20&with_session=false`);
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/hot?offset=${offset}&limit=20&with_session=false${auth}`);
       } else if (sort.startsWith('popular')) {
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/popular?timerange=${tr || '1month'}&offset=${offset}&limit=20&with_session=false`);
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/popular?timerange=${tr || '1month'}&offset=${offset}&limit=20&with_session=false${auth}`);
       } else {
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/newest?offset=${offset}&limit=20&with_session=false`);
+        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/newest?offset=${offset}&limit=20&with_session=false${auth}`);
       }
-      return { url, headers };
+      return { url, headers: {} };
     },
     parsePosts(data) {
       const items = Array.isArray(data?.results) ? data.results : [];

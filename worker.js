@@ -27,14 +27,6 @@ async function handleRequest(request) {
   newHeaders.delete('Origin')
   newHeaders.delete('Referer')
 
-  // X-DA-Token: client passes the DeviantArt bearer token in this custom header;
-  // worker converts it to Authorization so the browser never sends Authorization directly
-  const daToken = newHeaders.get('X-DA-Token')
-  newHeaders.delete('X-DA-Token')
-  if (daToken) {
-    newHeaders.set('Authorization', `Bearer ${daToken}`)
-  }
-
   // Spoof legitimate browser headers per-site
   if (targetUrlStr.includes('donmai.us')) {
     newHeaders.set('Referer', 'https://danbooru.donmai.us/')
