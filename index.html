@@ -853,12 +853,22 @@ const SITES = {
       if (this._token && Date.now() < this._tokenExpiry) return this._token;
       if (!CFG.dakey || !CFG.dasecret) return null;
       try {
-        const res = await fetch(p(`https://www.deviantart.com/oauth2/token?grant_type=client_credentials&client_id=${encodeURIComponent(CFG.dakey)}&client_secret=${encodeURIComponent(CFG.dasecret)}`), { method: 'POST' });
+        const body = new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: CFG.dakey,
+          client_secret: CFG.dasecret,
+        });
+        const res = await fetch(p('https://www.deviantart.com/oauth2/token'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        });
         const data = await res.json();
+        if (data.error) { console.error('DA token error:', data.error_description); return null; }
         this._token = data.access_token || null;
         this._tokenExpiry = Date.now() + ((data.expires_in || 3600) - 60) * 1000;
         return this._token;
-      } catch { return null; }
+      } catch (e) { console.error('DA token fetch failed:', e); return null; }
     },
     buildPostsUrl(tags, order, age, rating, page, _latestId, cursor) {
       // Will be called with token injected in fetchPosts override
