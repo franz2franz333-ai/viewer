@@ -643,8 +643,9 @@ const SITES = {
     parsePosts(data) {
       return (Array.isArray(data) ? data : []).map(post => ({
         id: post.id, file_ext: post.file_ext || '', rating: post.rating || 'g',
-        thumb: post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
-        full:  post.large_file_url ? p(post.large_file_url) : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
+        // preview_file_url is on danbooru.donmai.us (proxy-friendly); large/file_url are on cdn.donmai.us (blocks proxies)
+        thumb: post.preview_file_url ? p(post.preview_file_url) : null,
+        full:  post.large_file_url   ? p(post.large_file_url)   : post.file_url ? p(post.file_url) : post.preview_file_url ? p(post.preview_file_url) : null,
         tags: [
           ...(post.tag_string_artist    || '').split(' '),
           ...(post.tag_string_character || '').split(' '),
