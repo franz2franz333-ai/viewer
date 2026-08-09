@@ -848,28 +848,43 @@ const SITES = {
     buildPostsUrl() { return null; },
     async buildUrl(tags, order, age, _rating, page) {
       const offset = (page - 1) * 24;
-      const popular = order !== 'order:random';
-      let q;
+      const isNewest = order === 'order:random';
+      const timeMap = {
+        '':        '24hr',
+        'age:..1d':'24hr',
+        'age:..3d':'3days',
+        'age:..1w':'1week',
+        'age:..1mo':'1month',
+      };
+      const window = timeMap[age] || '24hr';
+
+      let url;
       if (tags.length) {
-        q = (popular ? 'sort:popular ' : '') + tags.join(' ');
+        const tag = encodeURIComponent(tags[0]);
+        url = p(`https://www.deviantart.com/_napi/da-browse/api/tag/tagged?tag=${tag}&offset=${offset}&limit=24&order=${isNewest ? 'newest' : 'popular-${window}'}&with_session=false`);
+      } else if (isNewest) {
+        url = p(`https://www.deviantart.com/_napi/da-browse/api/topic?topic=digital-art&offset=${offset}&limit=24&order=newest&with_session=false`);
       } else {
-        q = popular ? 'sort:popular in:digitalart' : 'in:digitalart';
+        url = p(`https://www.deviantart.com/_napi/da-browse/api/topic?topic=digital-art&offset=${offset}&limit=24&order=popular-${window}&with_session=false`);
       }
-      const url = p(`https://backend.deviantart.com/rss.xml?type=deviation&q=${encodeURIComponent(q)}&offset=${offset}&limit=24`);
-      return { url, headers: {}, isXml: true };
+      return { url, headers: {} };
     },
-    parsePosts(raw) {
-      try {
-        const xml = new DOMParser().parseFromString(raw, 'text/xml');
-        return Array.from(xml.querySelectorAll('item')).map(item => {
-          const full  = item.querySelector('content')?.getAttribute('url') || null;
-          const thumb = item.querySelector('thumbnail')?.getAttribute('url') || full;
-          const link  = item.querySelector('link')?.textContent?.trim() || '';
-          const cats  = Array.from(item.querySelectorAll('category')).map(c => c.textContent).filter(Boolean);
-          const ext   = (full || '').split('.').pop().split('?')[0].toLowerCase() || 'jpg';
-          return { id: link, file_ext: ext, rating: 'g', thumb: thumb ? p(thumb) : null, full: full ? p(full) : null, tags: cats, pageUrl: link };
-        }).filter(post => post.thumb);
-      } catch { return []; }
+    parsePosts(data) {
+      const items = Array.isArray(data?.results) ? data.results : [];
+      return items.filter(d => d.type === 'deviation' && (d.preview || d.thumbs?.length)).map(d => {
+        const thumb = d.thumbs?.length ? d.thumbs[d.thumbs.length - 1].src : d.preview?.src || null;
+        const full  = d.preview?.src || thumb;
+        const ext   = (full || '').split('.').pop().split('?')[0].toLowerCase() || 'jpg';
+        return {
+          id: d.deviationId || d.deviation_id || d.url,
+          file_ext: ext,
+          rating: d.isMature ? 'e' : 'g',
+          thumb: thumb ? p(thumb) : null,
+          full:  full  ? p(full)  : null,
+          tags:  d.tags?.map(t => t.name) || [],
+          pageUrl: d.url || '',
+        };
+      }).filter(post => post.thumb);
     },
     buildAcUrl(q) {
       return `https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`;

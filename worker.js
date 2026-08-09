@@ -50,8 +50,11 @@ async function handleRequest(request) {
   } else if (targetUrlStr.includes('deviantart.com') || targetUrlStr.includes('images-wixmp-') || targetUrlStr.includes('wixmp.com')) {
     newHeaders.set('Referer', 'https://www.deviantart.com/')
     newHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-    newHeaders.set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8')
+    newHeaders.set('Accept', 'application/json, text/plain, */*')
     newHeaders.set('Accept-Language', 'en-US,en;q=0.9')
+    newHeaders.set('sec-fetch-site', 'same-origin')
+    newHeaders.set('sec-fetch-mode', 'cors')
+    newHeaders.set('sec-fetch-dest', 'empty')
   }
 
   try {
