@@ -855,10 +855,10 @@ const SITES = {
       };
       const sort = sortMap[order] || 'popular';
       const q = tags.length ? tags.join(' ') : '';
-      return p(`https://nhentai.net/api/v2/galleries/search?query=${encodeURIComponent(q)}&sort=${sort}&page=${page}&per_page=25`);
+      return p(`https://nhentai.net/api/galleries/search?query=${encodeURIComponent(q)}&sort=${sort}&page=${page}&per_page=25`);
     },
     parsePosts(data) {
-      const items = Array.isArray(data?.result) ? data.result : [];
+      const items = Array.isArray(data?.result) ? data.result : Array.isArray(data?.results) ? data.results : [];
       return items.map(g => {
         const mid = g.media_id;
         const extMap = { 1: 'jpg', 2: 'png', 3: 'gif', j: 'jpg', p: 'png', g: 'gif' };
@@ -881,7 +881,7 @@ const SITES = {
       }).filter(p => p.thumb);
     },
     buildAcUrl(q) {
-      return p(`https://nhentai.net/api/v2/tags/search/?query=${encodeURIComponent(q)}`);
+      return p(`https://nhentai.net/api/tags/search/?query=${encodeURIComponent(q)}`);
     },
     parseAc(data) {
       return (Array.isArray(data?.results) ? data.results : []).map(t => ({ name: t.name, count: t.count, category: 0 }));
