@@ -505,10 +505,6 @@
           <span class="site-menu-name">civitai</span>
           <span class="site-menu-url">civitai.com</span>
         </button>
-        <button class="site-menu-item" data-site="deviantart">
-          <span class="site-menu-name">deviantart</span>
-          <span class="site-menu-url">deviantart.com</span>
-        </button>
       </div>
     </div>
     <div class="search-wrap">
@@ -843,56 +839,6 @@ const SITES = {
       return (Array.isArray(data?.items) ? data.items : []).map(u => ({ name: u.username, count: u.uploadCount || 0, category: 0 }));
     },
   },
-  deviantart: {
-    label: 'deviantart',
-    buildPostsUrl() { return null; },
-    async buildUrl(tags, order, age, _rating, page) {
-      const offset = (page - 1) * 24;
-      const isNewest = order === 'order:random';
-      const timeMap = {
-        '':        '24hr',
-        'age:..1d':'24hr',
-        'age:..3d':'3days',
-        'age:..1w':'1week',
-        'age:..1mo':'1month',
-      };
-      const window = timeMap[age] || '24hr';
-
-      let url;
-      if (tags.length) {
-        const tag = encodeURIComponent(tags[0]);
-        url = p(`https://www.deviantart.com/_napi/da-browse/api/tag/tagged?tag=${tag}&offset=${offset}&limit=24&order=${isNewest ? 'newest' : 'popular-${window}'}&with_session=false`);
-      } else if (isNewest) {
-        url = p(`https://www.deviantart.com/_napi/da-browse/api/topic?topic=digital-art&offset=${offset}&limit=24&order=newest&with_session=false`);
-      } else {
-        url = p(`https://www.deviantart.com/_napi/da-browse/api/topic?topic=digital-art&offset=${offset}&limit=24&order=popular-${window}&with_session=false`);
-      }
-      return { url, headers: {} };
-    },
-    parsePosts(data) {
-      const items = Array.isArray(data?.results) ? data.results : [];
-      return items.filter(d => d.type === 'deviation' && (d.preview || d.thumbs?.length)).map(d => {
-        const thumb = d.thumbs?.length ? d.thumbs[d.thumbs.length - 1].src : d.preview?.src || null;
-        const full  = d.preview?.src || thumb;
-        const ext   = (full || '').split('.').pop().split('?')[0].toLowerCase() || 'jpg';
-        return {
-          id: d.deviationId || d.deviation_id || d.url,
-          file_ext: ext,
-          rating: d.isMature ? 'e' : 'g',
-          thumb: thumb ? p(thumb) : null,
-          full:  full  ? p(full)  : null,
-          tags:  d.tags?.map(t => t.name) || [],
-          pageUrl: d.url || '',
-        };
-      }).filter(post => post.thumb);
-    },
-    buildAcUrl(q) {
-      return `https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`;
-    },
-    parseAc(data) {
-      return (Array.isArray(data) ? data : []).map(t => ({ name: t.name, count: t.post_count, category: t.category }));
-    },
-  },
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -961,11 +907,6 @@ siteMenuEl.addEventListener('click', e => {
     ratingFilterGroup.style.display = 'flex';
     civitaiCursor = null;
     tagInput.placeholder = 'filter by username…';
-  } else if (key === 'deviantart') {
-    ageFilterLabel.textContent = "period";
-    ratingFilterGroup.style.display = 'none';
-    ratingVal = '';
-    tagInput.placeholder = 'search tags…';
   } else {
     ageFilterLabel.textContent = "age";
     ratingFilterGroup.style.display = 'flex';
@@ -1060,18 +1001,13 @@ let prefetchCache = null; // { url, promise, posts }
 async function prefetchNextPage() {
   if (exhausted || loading) return;
   const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
-  const nextResult = currentSite.buildUrl
-    ? await currentSite.buildUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, civitaiCursor)
-    : currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, latestId, civitaiCursor);
-  const nextUrl     = nextResult?.url ?? nextResult;
-  const nextHeaders = nextResult?.headers ?? {};
-  const nextIsXml   = nextResult?.isXml ?? false;
+  const nextUrl = currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, latestId, civitaiCursor);
   if (prefetchCache?.url === nextUrl) return; // already prefetching this
   prefetchCache = { url: nextUrl, posts: null };
   try {
-    const res = await fetch(nextUrl, Object.keys(nextHeaders).length ? { headers: nextHeaders } : undefined);
+    const res = await fetch(nextUrl);
     if (!res.ok) return;
-    const raw = nextIsXml ? await res.text() : await res.json();
+    const raw = await res.json();
     prefetchCache.posts = currentSite.parsePosts(raw);
   } catch { prefetchCache = null; }
 }
@@ -1107,12 +1043,7 @@ async function fetchPosts() {
   }
 
   const latestId = currentSite.label === 'gelbooru' ? gelbooruLatestId : rule34LatestId;
-  const urlResult = currentSite.buildUrl
-    ? await currentSite.buildUrl(tags, orderSel.value, ageSel.value, ratingVal, page, civitaiCursor)
-    : currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page, latestId, civitaiCursor);
-  const url        = urlResult?.url ?? urlResult;
-  const fetchHeaders = urlResult?.headers ?? {};
-  const isXml      = urlResult?.isXml ?? false;
+  const url = currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page, latestId, civitaiCursor);
   try {
     let posts;
     // Use prefetch cache if it matches current page URL
@@ -1121,10 +1052,10 @@ async function fetchPosts() {
       prefetchCache = null;
     } else {
       prefetchCache = null;
-      const res = await fetch(url, Object.keys(fetchHeaders).length ? { headers: fetchHeaders } : undefined);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const raw = isXml ? await res.text() : await res.json();
-      if (raw?.metadata?.nextCursor !== undefined) civitaiCursor = raw.metadata.nextCursor || null;
+      const raw = await res.json();
+      if (raw.metadata?.nextCursor !== undefined) civitaiCursor = raw.metadata.nextCursor || null;
       posts = currentSite.parsePosts(raw);
     }
     if (!posts.length) {
