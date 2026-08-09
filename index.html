@@ -850,23 +850,20 @@ const SITES = {
         '':               'popular',
         'order:score':    'popular',
         'order:favcount': 'popular',
-        'order:rank':     'popular-today',
+        'order:rank':     'popular-week',
         'order:random':   'date',
       };
       const sort = sortMap[order] || 'popular';
-      const q = tags.length ? tags.join('+') : '';
-      return p(`https://nhentai.net/api/galleries/search?query=${encodeURIComponent(q)}&sort=${sort}&page=${page}`);
+      const q = tags.length ? tags.join(' ') : '';
+      return p(`https://nhentai.net/api/v2/galleries/search?query=${encodeURIComponent(q)}&sort=${sort}&page=${page}&per_page=25`);
     },
     parsePosts(data) {
       const items = Array.isArray(data?.result) ? data.result : [];
       return items.map(g => {
-        const cover = g.images?.cover;
-        const pages = g.images?.pages || [];
-        // media_id is used to build image URLs
         const mid = g.media_id;
-        const extMap = { 1: 'jpg', 2: 'png', 3: 'gif' };
-        const coverExt = extMap[cover?.t] || 'jpg';
-        const firstExt = extMap[pages[0]?.t] || 'jpg';
+        const extMap = { 1: 'jpg', 2: 'png', 3: 'gif', j: 'jpg', p: 'png', g: 'gif' };
+        const coverExt = extMap[g.images?.cover?.t] || 'jpg';
+        const firstExt = extMap[g.images?.pages?.[0]?.t] || 'jpg';
         const thumbUrl = mid ? p(`https://t.nhentai.net/galleries/${mid}/cover.${coverExt}`) : null;
         const fullUrl  = mid ? p(`https://t.nhentai.net/galleries/${mid}/1.${firstExt}`) : thumbUrl;
         const tags = (g.tags || []).filter(t => t.type === 'tag').map(t => t.name);
@@ -884,7 +881,7 @@ const SITES = {
       }).filter(p => p.thumb);
     },
     buildAcUrl(q) {
-      return p(`https://nhentai.net/api/tags/search/?query=${encodeURIComponent(q)}`);
+      return p(`https://nhentai.net/api/v2/tags/search/?query=${encodeURIComponent(q)}`);
     },
     parseAc(data) {
       return (Array.isArray(data?.results) ? data.results : []).map(t => ({ name: t.name, count: t.count, category: 0 }));
