@@ -505,10 +505,6 @@
           <span class="site-menu-name">civitai</span>
           <span class="site-menu-url">civitai.com</span>
         </button>
-        <button class="site-menu-item" data-site="nhentai">
-          <span class="site-menu-name">nhentai</span>
-          <span class="site-menu-url">nhentai.net</span>
-        </button>
       </div>
     </div>
     <div class="search-wrap">
@@ -843,50 +839,6 @@ const SITES = {
       return (Array.isArray(data?.items) ? data.items : []).map(u => ({ name: u.username, count: u.uploadCount || 0, category: 0 }));
     },
   },
-  nhentai: {
-    label: 'nhentai',
-    buildPostsUrl(tags, order, age, rating, page) {
-      const sortMap = {
-        '':               'popular',
-        'order:score':    'popular',
-        'order:favcount': 'popular',
-        'order:rank':     'popular-week',
-        'order:random':   'date',
-      };
-      const sort = sortMap[order] || 'popular';
-      const q = tags.length ? tags.join(' ') : '';
-      return p(`https://nhentai.net/api/galleries/search?query=${encodeURIComponent(q)}&sort=${sort}&page=${page}&per_page=25`);
-    },
-    parsePosts(data) {
-      const items = Array.isArray(data?.result) ? data.result : Array.isArray(data?.results) ? data.results : [];
-      return items.map(g => {
-        const mid = g.media_id;
-        const extMap = { 1: 'jpg', 2: 'png', 3: 'gif', j: 'jpg', p: 'png', g: 'gif' };
-        const coverExt = extMap[g.images?.cover?.t] || 'jpg';
-        const firstExt = extMap[g.images?.pages?.[0]?.t] || 'jpg';
-        const thumbUrl = mid ? p(`https://t.nhentai.net/galleries/${mid}/cover.${coverExt}`) : null;
-        const fullUrl  = mid ? p(`https://i.nhentai.net/galleries/${mid}/1.${firstExt}`) : thumbUrl;
-        const tags = (g.tags || []).filter(t => t.type === 'tag').map(t => t.name);
-        return {
-          id: g.id,
-          file_ext: coverExt,
-          rating: 'e',
-          thumb: thumbUrl,
-          full: fullUrl,
-          tags,
-          pageUrl: `https://nhentai.net/g/${g.id}/`,
-          title: g.title?.english || g.title?.pretty || '',
-          pageCount: g.num_pages,
-        };
-      }).filter(p => p.thumb);
-    },
-    buildAcUrl(q) {
-      return p(`https://nhentai.net/api/tags/search/?query=${encodeURIComponent(q)}`);
-    },
-    parseAc(data) {
-      return (Array.isArray(data?.results) ? data.results : []).map(t => ({ name: t.name, count: t.count, category: 0 }));
-    },
-  },
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -955,11 +907,6 @@ siteMenuEl.addEventListener('click', e => {
     ratingFilterGroup.style.display = 'flex';
     civitaiCursor = null;
     tagInput.placeholder = 'filter by username…';
-  } else if (key === 'nhentai') {
-    ageFilterLabel.textContent = "sort";
-    ratingFilterGroup.style.display = 'none';
-    ratingVal = '';
-    tagInput.placeholder = 'add tags…';
   } else {
     ageFilterLabel.textContent = "age";
     ratingFilterGroup.style.display = 'flex';
