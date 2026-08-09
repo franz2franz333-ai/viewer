@@ -865,7 +865,7 @@ const SITES = {
         const coverExt = extMap[g.images?.cover?.t] || 'jpg';
         const firstExt = extMap[g.images?.pages?.[0]?.t] || 'jpg';
         const thumbUrl = mid ? p(`https://t.nhentai.net/galleries/${mid}/cover.${coverExt}`) : null;
-        const fullUrl  = mid ? p(`https://t.nhentai.net/galleries/${mid}/1.${firstExt}`) : thumbUrl;
+        const fullUrl  = mid ? p(`https://i.nhentai.net/galleries/${mid}/1.${firstExt}`) : thumbUrl;
         const tags = (g.tags || []).filter(t => t.type === 'tag').map(t => t.name);
         return {
           id: g.id,
