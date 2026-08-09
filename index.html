@@ -890,6 +890,9 @@ const SITES = {
       return (Array.isArray(data?.results) ? data.results : []).map(t => ({ name: t.name, count: t.count, category: 0 }));
     },
   },
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
 let currentSite = SITES.danbooru;
 let tags      = [];
 let page      = 1;
