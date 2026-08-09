@@ -598,8 +598,6 @@ const CFG = {
   aikey:   localStorage.getItem('cfg_ai_key')   || '',
   danblogin: localStorage.getItem('cfg_danb_login') || '',
   danbkey:   localStorage.getItem('cfg_danb_key')   || '',
-  dakey:     localStorage.getItem('cfg_da_key')     || '',
-  dasecret:  localStorage.getItem('cfg_da_secret')  || '',
 };
 
 // ── CORS Proxy ────────────────────────────────────────────────────────────────
@@ -847,68 +845,33 @@ const SITES = {
   },
   deviantart: {
     label: 'deviantart',
-    _token: null,
-    _tokenExpiry: 0,
-    async getToken() {
-      if (this._token && Date.now() < this._tokenExpiry) return this._token;
-      if (!CFG.dakey || !CFG.dasecret) return null;
-      try {
-        const body = new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: CFG.dakey,
-          client_secret: CFG.dasecret,
-        });
-        const res = await fetch(p('https://www.deviantart.com/oauth2/token'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: body.toString(),
-        });
-        const data = await res.json();
-        if (data.error) { console.error('DA token error:', data.error_description); return null; }
-        this._token = data.access_token || null;
-        this._tokenExpiry = Date.now() + ((data.expires_in || 3600) - 60) * 1000;
-        return this._token;
-      } catch (e) { console.error('DA token fetch failed:', e); return null; }
-    },
-    buildPostsUrl(tags, order, age, rating, page, _latestId, cursor) {
-      // Will be called with token injected in fetchPosts override
-      return null; // URL built dynamically in fetchPosts
-    },
+    buildPostsUrl() { return null; },
     async buildUrl(tags, order, age, _rating, page) {
-      const token = await this.getToken();
-      const auth = token ? `&access_token=${encodeURIComponent(token)}` : '';
-      const offset = (page - 1) * 20;
-      const sortMap = { '': 'newest', 'order:score': 'popular-24hr', 'order:favcount': 'popular-all-time', 'order:rank': 'popular-1week', 'order:random': 'newest' };
-      const timeRange = { '': 'popular-24hr', 'age:..1d': 'popular-24hr', 'age:..3d': 'popular-1week', 'age:..1w': 'popular-1week', 'age:..1mo': 'popular-1month' };
-      const sort = sortMap[order] || 'newest';
-      const tr = timeRange[age] || 'popular-24hr';
-
-      let url;
+      const offset = (page - 1) * 24;
+      const popular = order !== 'order:random';
+      let q;
       if (tags.length) {
-        const q = tags.join(' ');
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/tags?tag=${encodeURIComponent(q)}&offset=${offset}&limit=20&mature_content=false${auth}`);
-      } else if (sort === 'newest') {
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/newest?category_path=digitalart&offset=${offset}&limit=20&mature_content=false${auth}`);
+        q = (popular ? 'sort:popular ' : '') + tags.join(' ');
       } else {
-        // popular-24hr / popular-1week / popular-1month / popular-all-time
-        url = p(`https://www.deviantart.com/api/v1/oauth2/browse/popular?timerange=${tr}&category_path=digitalart&offset=${offset}&limit=20&mature_content=false${auth}`);
+        q = popular ? 'sort:popular in:digitalart' : 'in:digitalart';
       }
-      return { url, headers: {} };
+      const url = p(`https://backend.deviantart.com/rss.xml?type=deviation&q=${encodeURIComponent(q)}&offset=${offset}&limit=24`);
+      return { url, headers: {}, isXml: true };
     },
-    parsePosts(data) {
-      const items = Array.isArray(data?.results) ? data.results : [];
-      return items.filter(d => d.content || d.thumbs?.length).map(d => ({
-        id: d.deviationid,
-        file_ext: (d.content?.src || '').split('.').pop().split('?')[0].toLowerCase() || 'jpg',
-        rating: d.is_mature ? 'e' : 'g',
-        thumb: d.thumbs?.length ? d.thumbs[d.thumbs.length - 1].src : d.content?.src || null,
-        full:  d.content?.src || (d.thumbs?.length ? d.thumbs[d.thumbs.length - 1].src : null),
-        tags:  d.tags ? d.tags.map(t => t.tag_name) : [],
-        pageUrl: d.url || `https://www.deviantart.com/deviation/${d.deviationid}`,
-      }));
+    parsePosts(raw) {
+      try {
+        const xml = new DOMParser().parseFromString(raw, 'text/xml');
+        return Array.from(xml.querySelectorAll('item')).map(item => {
+          const full  = item.querySelector('content')?.getAttribute('url') || null;
+          const thumb = item.querySelector('thumbnail')?.getAttribute('url') || full;
+          const link  = item.querySelector('link')?.textContent?.trim() || '';
+          const cats  = Array.from(item.querySelectorAll('category')).map(c => c.textContent).filter(Boolean);
+          const ext   = (full || '').split('.').pop().split('?')[0].toLowerCase() || 'jpg';
+          return { id: link, file_ext: ext, rating: 'g', thumb: thumb ? p(thumb) : null, full: full ? p(full) : null, tags: cats, pageUrl: link };
+        }).filter(post => post.thumb);
+      } catch { return []; }
     },
     buildAcUrl(q) {
-      // DeviantArt doesn't have a simple unauthenticated tag autocomplete; fall back to Danbooru AC
       return `https://danbooru.donmai.us/tags.json?search[name_matches]=${encodeURIComponent(q)}*&search[order]=count&limit=8`;
     },
     parseAc(data) {
@@ -1087,12 +1050,13 @@ async function prefetchNextPage() {
     : currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page + 1, latestId, civitaiCursor);
   const nextUrl     = nextResult?.url ?? nextResult;
   const nextHeaders = nextResult?.headers ?? {};
+  const nextIsXml   = nextResult?.isXml ?? false;
   if (prefetchCache?.url === nextUrl) return; // already prefetching this
   prefetchCache = { url: nextUrl, posts: null };
   try {
     const res = await fetch(nextUrl, Object.keys(nextHeaders).length ? { headers: nextHeaders } : undefined);
     if (!res.ok) return;
-    const raw = await res.json();
+    const raw = nextIsXml ? await res.text() : await res.json();
     prefetchCache.posts = currentSite.parsePosts(raw);
   } catch { prefetchCache = null; }
 }
@@ -1131,8 +1095,9 @@ async function fetchPosts() {
   const urlResult = currentSite.buildUrl
     ? await currentSite.buildUrl(tags, orderSel.value, ageSel.value, ratingVal, page, civitaiCursor)
     : currentSite.buildPostsUrl(tags, orderSel.value, ageSel.value, ratingVal, page, latestId, civitaiCursor);
-  const url     = urlResult?.url ?? urlResult;
+  const url        = urlResult?.url ?? urlResult;
   const fetchHeaders = urlResult?.headers ?? {};
+  const isXml      = urlResult?.isXml ?? false;
   try {
     let posts;
     // Use prefetch cache if it matches current page URL
@@ -1143,8 +1108,8 @@ async function fetchPosts() {
       prefetchCache = null;
       const res = await fetch(url, Object.keys(fetchHeaders).length ? { headers: fetchHeaders } : undefined);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const raw = await res.json();
-      if (raw.metadata?.nextCursor !== undefined) civitaiCursor = raw.metadata.nextCursor || null;
+      const raw = isXml ? await res.text() : await res.json();
+      if (raw?.metadata?.nextCursor !== undefined) civitaiCursor = raw.metadata.nextCursor || null;
       posts = currentSite.parsePosts(raw);
     }
     if (!posts.length) {
@@ -1335,8 +1300,6 @@ function openSettings() {
   document.getElementById('cfg-ai-key').value   = CFG.aikey;
   document.getElementById('cfg-danb-login').value = CFG.danblogin;
   document.getElementById('cfg-danb-key').value   = CFG.danbkey;
-  document.getElementById('cfg-da-key').value     = CFG.dakey;
-  document.getElementById('cfg-da-secret').value  = CFG.dasecret;
   getSettingsOverlay().style.display = 'block';
   getSettingsModal().style.display   = 'block';
 }
@@ -1360,8 +1323,6 @@ window.addEventListener('load', () => {
   localStorage.setItem('cfg_ai_key',   document.getElementById('cfg-ai-key').value.trim());
   localStorage.setItem('cfg_danb_login', document.getElementById('cfg-danb-login').value.trim());
   localStorage.setItem('cfg_danb_key',   document.getElementById('cfg-danb-key').value.trim());
-  localStorage.setItem('cfg_da_key',     document.getElementById('cfg-da-key').value.trim());
-  localStorage.setItem('cfg_da_secret',  document.getElementById('cfg-da-secret').value.trim());
   getSettingsSaved().style.display = 'block';
   setTimeout(() => { closeSettings(); location.reload(); }, 1200);
   });
@@ -1514,16 +1475,6 @@ if (!CFG.proxy) {
     <div>
       <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">API Key</label>
       <input id="cfg-civ-key" type="text" placeholder="your civitai api key" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
-    </div>
-    <hr style="border:none;border-top:1px solid var(--border);">
-    <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">DEVIANTART</p>
-    <div>
-      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">Client ID</label>
-      <input id="cfg-da-key" type="text" placeholder="your deviantart client id" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
-    </div>
-    <div>
-      <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:6px;">Client Secret</label>
-      <input id="cfg-da-secret" type="text" placeholder="your deviantart client secret" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:.85rem;font-family:monospace;">
     </div>
     <hr style="border:none;border-top:1px solid var(--border);">
     <p style="font-size:.8rem;font-weight:700;letter-spacing:.05em;">AIBOORU</p>
