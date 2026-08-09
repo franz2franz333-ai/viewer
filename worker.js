@@ -47,6 +47,9 @@ async function handleRequest(request) {
   } else if (targetUrlStr.includes('rule34.xxx') || targetUrlStr.includes('api.rule34.xxx')) {
     newHeaders.set('Referer', 'https://rule34.xxx/')
     newHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+  } else if (targetUrlStr.includes('nhentai.net') || targetUrlStr.includes('t.nhentai.net') || targetUrlStr.includes('i.nhentai.net')) {
+    newHeaders.set('Referer', 'https://nhentai.net/')
+    newHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
   } else if (targetUrlStr.includes('deviantart.com') || targetUrlStr.includes('images-wixmp-') || targetUrlStr.includes('wixmp.com')) {
     newHeaders.set('Referer', 'https://www.deviantart.com/')
     newHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
